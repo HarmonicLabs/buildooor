@@ -6,7 +6,7 @@
   <p align="center">Cardano transaction library in typescript</p>
 
   <p align="center">
-    <img src="https://img.shields.io/github/commit-activity/m/harmonicpool/buildoor?style=for-the-badge" />
+    <img src="https://img.shields.io/github/commit-activity/m/HarmonicLabs/buildooor?style=for-the-badge" />
     <a href="https://twitter.com/hlabs_tech">
       <img src="https://img.shields.io/twitter/follow/hlabs_tech?style=for-the-badge&logo=twitter" />
     </a>
