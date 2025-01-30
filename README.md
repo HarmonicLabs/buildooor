@@ -1,6 +1,6 @@
 <p align="center">
     <p align="center">
-        <img width="100px" src="./assets/buildooor.png" align="center"/>
+        <img width="200px" src="./assets/buildooor.png" align="center"/>
         <h1 align="center">buildooor</h1>
     </p>
   <p align="center">Cardano transaction library in typescript</p>
