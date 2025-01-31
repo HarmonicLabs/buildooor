@@ -14,3 +14,9 @@
 </p>
 
 # Buildooor
+
+## Install
+
+```bash
+npm install @harmoniclabs/buildooor
+```

@@ -2,8 +2,6 @@ import { Address, Script, Credential, Hash32, UTxO, Value, defaultProtocolParame
 import { ITxRunnerProvider } from "../../IProvider";
 import { TxBuilder } from "../../TxBuilder";
 import { DataConstr, DataI } from "@harmoniclabs/plutus-data";
-import { compile, pfn, data, unit, pmakeUnit, pBool, bool, pisEmpty } from "../../../../../onchain/src";
-import { parseUPLC, showUPLC } from "@harmoniclabs/uplc";
 
 const SYS_START = 1506203091000; // Date.parse("2017-09-23T21:44:51Z"); // mainnet start
 
@@ -84,51 +82,4 @@ describe("TxBuilderRunner", () => {
         
     });
 
-    test("script", async () => {
-
-        const okScript = new Script(
-            "PlutusScriptV2",
-            compile(
-                pfn([ data, data, data ], unit)
-                (( d, r, c ) => pmakeUnit())
-            )
-        );
-
-        const okAddress = new Address(
-            "testnet",
-            Credential.script( okScript.hash )
-        );
-
-        const tx = await txRunner
-        .addInput(
-            new UTxO({
-                utxoRef: {
-                    id: "ff".repeat( 32 ),
-                    index: 0
-                },
-                resolved: {
-                    address: okAddress,
-                    value: Value.lovelaces( 10_000_000 ),
-                    datum: new DataI( 0 )
-                }
-            }),
-            new DataI( 0 )
-        )
-        .attachValidator( okScript )
-        .setCollateral(
-            new UTxO({
-                utxoRef: {
-                    id: "33".repeat( 32 ),
-                    index: 0
-                },
-                resolved: {
-                    address: Address.fake,
-                    value: Value.lovelaces( 10_000_000 )
-                }
-            })
-        )
-        .payTo( Address.fake, 5_000_000 )
-        .build();
-        
-    })
 })
