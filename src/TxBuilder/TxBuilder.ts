@@ -131,10 +131,8 @@ export class TxBuilder
 
     calcMinFee( tx: Tx ): bigint
     {
-
         const totRefScriptBytes = (tx.body.refInputs ?? [])
         .reduce((sum, refIn) => {
-
             if( refIn.resolved.refScript )
             return sum + BigInt(
                 refIn.resolved.refScript.toCbor().toBuffer().length
@@ -153,9 +151,9 @@ export class TxBuilder
         );
 
         const minFeeMultiplier = forceBigUInt( this.protocolParamters.txFeePerByte );
-
+        
         const nVkeyWits = BigInt( estimateMaxSignersNeeded( tx ) );
-
+      
         const minFee = this.calcLinearFee( tx ) +
             minRefScriptFee +
             // consider also vkeys witnesses to be added
@@ -317,7 +315,7 @@ export class TxBuilder
         const _initBuild = this.initTxBuild( buildArgs );
 
         const {
-            // tx,
+           // tx,
             scriptsToExec,
             datumsScriptData,
             languageViews,
@@ -532,6 +530,7 @@ export class TxBuilder
             }
 
             minFee = this.calcMinFee( tx );
+
             fee = minFee +
                 ((totExBudget.mem * memRational.num) / memRational.den) +
                 ((totExBudget.cpu * cpuRational.num) / cpuRational.den) +
@@ -540,7 +539,7 @@ export class TxBuilder
                 BigInt(2);
 
             if( fee === prevFee ) break; // return last transaciton
-
+            
             // reset for next loop
             
             // no need to reset if there's no next loop
@@ -663,7 +662,7 @@ export class TxBuilder
         } = args;
 
         if( change ) changeAddress = change.address;
-
+        
         if( !changeAddress )
         throw new Error(
             "missing changAddress and change entry while constructing a transaciton; unable to balance inputs and outpus"
@@ -895,6 +894,7 @@ export class TxBuilder
             if( ord === 0 ) return a.utxo.utxoRef.index - b.utxo.utxoRef.index;
             // else order by tx id
             return ord;
+            
         });
 
         const _inputs = inputs.map( (input) =>
@@ -905,7 +905,7 @@ export class TxBuilder
                 inputScript,
                 nativeScript
             } = input;
-
+            
             const addr = utxo.resolved.address;
 
             totInputValue =  Value.add( totInputValue, utxo.resolved.value );
@@ -1006,7 +1006,6 @@ export class TxBuilder
         // also 16.777215 ADA (3 bytes) is a lot; but CBOR only uses 2 or 4 bytes integers
         // and 2 are ~0.06 ADA (too low) so go for 4;
         const dummyFee = BigInt( "0xffffffff" );
-
         const dummyOuts = outs.map( txO => txO.clone() );
 
         // add dummy change address output
@@ -1017,7 +1016,7 @@ export class TxBuilder
                 // however now we are not able to calculate it
                 // because we are missing the minted value and eventual
                 // values associated with certificates
-                value: Value.lovelaces( totInputValue.lovelaces ),
+                value: totInputValue.clone(),
                 datum: change.datum ? (
                     change.datum instanceof Hash32 ?
                     change.datum :
@@ -1406,7 +1405,8 @@ export class TxBuilder
             totInputValue,
             requiredOutputValue,
             outs,
-            change
+            change,
+            
         };
     }
 
