@@ -20,16 +20,16 @@ export interface ITxBuildArgs {
      * });
      * ```
      */
-    changeAddress?: Address | AddressStr | string,
+    changeAddress?: Address | AddressStr,
     change?: ChangeInfos;
     outputs?: ITxBuildOutput[],
     readonlyRefInputs?: IUTxO[],
-    requiredSigners?: CanBeHash28[], // PubKeyHash[],
+    requiredSigners?: (CanBeHash28 | Uint8Array)[], // PubKeyHash[],
     collaterals?: IUTxO[],
     collateralReturn?: ITxBuildOutput,
     mints?: ITxBuildMint[],
-    invalidBefore?: CanBeUInteger,
-    invalidAfter?: CanBeUInteger,
+    invalidBefore?: CanBeUInteger | bigint,
+    invalidAfter?: CanBeUInteger| bigint,
     certificates?: ITxBuildCert[],
     withdrawals?: ITxBuildWithdrawal[],
     /**
@@ -53,12 +53,12 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     outputs?: TxOut[],
     // era?: Era // latest
     readonlyRefInputs?: UTxO[],
-    requiredSigners?: PubKeyHash[],
+    requiredSigners?: (CanBeHash28 | Uint8Array)[],
     collaterals?: UTxO[],
     collateralReturn?: TxOut,
     mints?: NormalizedITxBuildMint[],
-    invalidBefore?: CanBeUInteger,
-    invalidAfter?: CanBeUInteger,
+    invalidBefore?: CanBeUInteger | bigint,
+    invalidAfter?: CanBeUInteger | bigint,
     certificates?: NormalizedITxBuildCert[],
     withdrawals?: NormalizedITxBuildWithdrawal[],
     /**
@@ -101,9 +101,9 @@ export function normalizeITxBuildArgs({
         inputs: inputs.map( normalizeITxBuildArgsInputs ),
         change: change ? normalizeChangeInfos( change ) : undefined,
         changeAddress: changeAddress ? (
-            changeAddress instanceof Address ? 
-                changeAddress : 
-                Address.fromString(typeof changeAddress === "string" ? changeAddress : changeAddress)
+            typeof changeAddress === "string" ?
+                Address.fromString( changeAddress ):
+                changeAddress
         ) : undefined,
         outputs: outputs?.map( txBuildOutToTxOut ),
         readonlyRefInputs: readonlyRefInputs?.map( toUTxONoClone ),
@@ -153,7 +153,7 @@ function toUTxONoClone( utxo: IUTxO ): UTxO
     return utxo instanceof UTxO ? utxo : new UTxO( utxo );
 }
 
-function toPubKeyHash( hash: CanBeHash28 ): PubKeyHash
+function toPubKeyHash( hash: CanBeHash28 |  Uint8Array ): PubKeyHash
 {
     return new PubKeyHash( hash );
 }
