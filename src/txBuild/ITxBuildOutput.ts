@@ -5,7 +5,7 @@ import { CanBeData, canBeData, forceData } from "../utils/CanBeData"
 export interface ITxBuildOutput {
     address: Address | AddressStr,
     value: Value | IValue,
-    datum?: CanBeHash32 | CanBeData
+    datum?: CanBeHash32 | CanBeData | string | Uint8Array,
     refScript?: Script
 }
 

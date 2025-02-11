@@ -23,9 +23,9 @@ export interface ITxBuildArgs {
     changeAddress?: Address | AddressStr | string,
     change?: ChangeInfos;
     outputs?: ITxBuildOutput[],
-    readonlyRefInputs?: IUTxO[],
-    requiredSigners?: CanBeHash28[], // PubKeyHash[],
-    collaterals?: IUTxO[],
+    readonlyRefInputs?: (IUTxO | string | Uint8Array)[],
+    requiredSigners?: (CanBeHash28 | string | Uint8Array)[], // PubKeyHash[],
+    collaterals?: (IUTxO | string | Uint8Array)[],
     collateralReturn?: ITxBuildOutput,
     mints?: ITxBuildMint[],
     invalidBefore?: CanBeUInteger,
@@ -71,8 +71,8 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     // conway
     votingProcedures?: NormalizedITxBuildVotingProcedure[],
     proposalProcedures?: NormalizedITxBuildProposalProcedure[],
-    currentTreasuryValue?: bigint,
-    paymentToTreasury?: bigint
+    currentTreasuryValue?: CanBeUInteger,
+    paymentToTreasury?: CanBeUInteger
 }
 
 export function normalizeITxBuildArgs({
