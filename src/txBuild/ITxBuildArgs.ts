@@ -104,13 +104,7 @@ export function normalizeITxBuildArgs({
   return {
     inputs: inputs.map(normalizeITxBuildArgsInputs),
     change: change ? normalizeChangeInfos(change) : undefined,
-    changeAddress: changeAddress
-      ? changeAddress instanceof Address
-        ? changeAddress
-        : Address.fromString(
-            typeof changeAddress === "string" ? changeAddress : changeAddress
-          )
-      : undefined,
+    changeAddress: normalizeChangeAddress(changeAddress),
     outputs: outputs?.map(txBuildOutToTxOut),
     readonlyRefInputs: readonlyRefInputs?.map(toUTxONoClone),
     requiredSigners: requiredSigners?.map(toPubKeyHash),
@@ -180,6 +174,23 @@ function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array |
   } else {
     // console.log("normalizeITxBuildArgsInputs: ITxBuildInput", input);
     return normalizeITxBuildInput(input);
+  }
+}
+function normalizeChangeAddress(changeAddress: Address | AddressStr | undefined): Address | undefined {
+  if (changeAddress === undefined) {
+    return undefined;
+  }
+
+  if (changeAddress instanceof Address) {
+    return changeAddress; // Already an Address, no conversion needed
+  } else if (typeof changeAddress === "string") {
+    try {
+      return Address.fromString(changeAddress);
+    } catch (error) {
+      throw new Error("Error converting string to Address: " + (error as Error).message);
+    }
+  } else {
+    throw new Error("Invalid changeAddress type. Expected Address or string.");
   }
 }
 
