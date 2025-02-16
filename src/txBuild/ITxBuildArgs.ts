@@ -8,158 +8,203 @@ import { CanBeUInteger } from "../utils/ints";
 import { ChangeInfos, NormalizedChangeInfos, normalizeChangeInfos } from "./ChangeInfos/ChangeInfos";
 import { ITxBuildVotingProcedure, NormalizedITxBuildVotingProcedure, normalizeITxBuildVotingProcedure } from "./ITxBuildVotingProcedure";
 import { ITxBuildProposalProcedure, NormalizedITxBuildProposalProcedure, normalizeITxBuildProposalProcedure } from "./ITxBuildProposalProcedure";
+import { fromHex } from "@harmoniclabs/uint8array-utils";
 
 export interface ITxBuildArgs {
-    inputs: (ITxBuildInput | IUTxO)[],
-    /**
-     * same as `changeAddress` but allows to specify datums and ref scripts
-     * @example
-     * ```ts
-     * txBuilder.build({
-     *     change: { address: "your_address" }
-     * });
-     * ```
-     */
-    changeAddress?: Address | AddressStr | string,
-    change?: ChangeInfos;
-    outputs?: ITxBuildOutput[],
-    readonlyRefInputs?: (IUTxO | string | Uint8Array)[],
-    requiredSigners?: (CanBeHash28 | string | Uint8Array)[], // PubKeyHash[],
-    collaterals?: (IUTxO | string | Uint8Array)[],
-    collateralReturn?: ITxBuildOutput,
-    mints?: ITxBuildMint[],
-    invalidBefore?: CanBeUInteger,
-    invalidAfter?: CanBeUInteger,
-    certificates?: ITxBuildCert[],
-    withdrawals?: ITxBuildWithdrawal[],
-    /**
-     * # metadata message following cip20
-     * 
-     * overwrites the metadata at label 674 if already present. 
-     **/
-    memo?: string,
-    metadata?: TxMetadata,
-    // conway
-    votingProcedures?: (IVotingProceduresEntry | ITxBuildVotingProcedure)[],
-    proposalProcedures?: (IProposalProcedure | ITxBuildProposalProcedure)[],
-    currentTreasuryValue?: CanBeUInteger,
-    paymentToTreasury?: CanBeUInteger
+  inputs: (ITxBuildInput | IUTxO )[];
+  /**
+   * same as `changeAddress` but allows to specify datums and ref scripts
+   * @example
+   * ```ts
+   * txBuilder.build({
+   *     change: { address: "your_address" }
+   * });
+   * ```
+   */
+  changeAddress?: Address | AddressStr,
+  change?: ChangeInfos;
+  outputs?: ITxBuildOutput[],
+  readonlyRefInputs?: IUTxO[],
+  requiredSigners?: CanBeHash28[], // PubKeyHash[],
+    // readonlyRefInputs?: (IUTxO | string | Uint8Array)[];
+  // requiredSigners?: (CanBeHash28 | string | Uint8Array)[]; // PubKeyHash[],
+  collaterals?: IUTxO[],
+  collateralReturn?: ITxBuildOutput,
+  mints?: ITxBuildMint[],
+  invalidBefore?: CanBeUInteger,
+  invalidAfter?: CanBeUInteger,
+  certificates?: ITxBuildCert[],
+  withdrawals?: ITxBuildWithdrawal[],
+
+
+  /**
+   * # metadata message following cip20
+   *
+   * overwrites the metadata at label 674 if already present.
+   **/
+  memo?: string;
+  metadata?: TxMetadata;
+  // conway
+  votingProcedures?: (IVotingProceduresEntry | ITxBuildVotingProcedure)[];
+  proposalProcedures?: (IProposalProcedure | ITxBuildProposalProcedure)[];
+  currentTreasuryValue?: CanBeUInteger;
+  paymentToTreasury?: CanBeUInteger;
 }
 
 export interface NormalizedITxBuildArgs extends ITxBuildArgs {
-    inputs: NormalizedITxBuildInput[],
-    changeAddress?: Address,
-    change?: NormalizedChangeInfos;
-    outputs?: TxOut[],
-    // era?: Era // latest
-    readonlyRefInputs?: UTxO[],
-    requiredSigners?: PubKeyHash[],
-    collaterals?: UTxO[],
-    collateralReturn?: TxOut,
-    mints?: NormalizedITxBuildMint[],
-    invalidBefore?: CanBeUInteger,
-    invalidAfter?: CanBeUInteger,
-    certificates?: NormalizedITxBuildCert[],
-    withdrawals?: NormalizedITxBuildWithdrawal[],
-    /**
-     * # metadata message following cip20
-     * 
-     * overwrites the metadata at label 674 if already present. 
-     **/
-    memo?: string,
-    metadata?: TxMetadata,
-    // conway
-    votingProcedures?: NormalizedITxBuildVotingProcedure[],
-    proposalProcedures?: NormalizedITxBuildProposalProcedure[],
-    currentTreasuryValue?: CanBeUInteger,
-    paymentToTreasury?: CanBeUInteger
+  inputs: NormalizedITxBuildInput[];
+  changeAddress?: Address ;
+  change?: NormalizedChangeInfos;
+  outputs?: TxOut[];
+  // era?: Era // latest
+  readonlyRefInputs?: UTxO[];
+  requiredSigners?: PubKeyHash[];
+  collaterals?: UTxO[];
+  collateralReturn?: TxOut;
+  mints?: NormalizedITxBuildMint[];
+  invalidBefore?: CanBeUInteger;
+  invalidAfter?: CanBeUInteger;
+  certificates?: NormalizedITxBuildCert[];
+  withdrawals?: NormalizedITxBuildWithdrawal[];
+  /**
+   * # metadata message following cip20
+   *
+   * overwrites the metadata at label 674 if already present.
+   **/
+  memo?: string;
+  metadata?: TxMetadata;
+  // conway
+  votingProcedures?: NormalizedITxBuildVotingProcedure[];
+  proposalProcedures?: NormalizedITxBuildProposalProcedure[];
+  currentTreasuryValue?: CanBeUInteger;
+  paymentToTreasury?: CanBeUInteger;
 }
 
 export function normalizeITxBuildArgs({
-    inputs,
-    change,
-    changeAddress,
-    outputs,
-    readonlyRefInputs,
-    requiredSigners,
-    collaterals,
-    collateralReturn,
-    mints,
-    invalidBefore,
-    invalidAfter,
-    certificates,
-    withdrawals,
-    memo,
+  inputs,
+  change,
+  changeAddress,
+  outputs,
+  readonlyRefInputs,
+  requiredSigners,
+  collaterals,
+  collateralReturn,
+  mints,
+  invalidBefore,
+  invalidAfter,
+  certificates,
+  withdrawals,
+  memo,
+  metadata,
+  votingProcedures,
+  proposalProcedures,
+  currentTreasuryValue,
+  paymentToTreasury,
+}: ITxBuildArgs): NormalizedITxBuildArgs {
+  return {
+    inputs: inputs.map(normalizeITxBuildArgsInputs),
+    change: change ? normalizeChangeInfos(change) : undefined,
+    changeAddress: changeAddress
+      ? changeAddress instanceof Address
+        ? changeAddress
+        : Address.fromString(
+            typeof changeAddress === "string" ? changeAddress : changeAddress
+          )
+      : undefined,
+    outputs: outputs?.map(txBuildOutToTxOut),
+    readonlyRefInputs: readonlyRefInputs?.map(toUTxONoClone),
+    requiredSigners: requiredSigners?.map(toPubKeyHash),
+    collaterals: collaterals?.map(toUTxONoClone),
+    collateralReturn: collateralReturn
+      ? txBuildOutToTxOut(collateralReturn)
+      : undefined,
+    mints: mints?.map(normalizeITxBuildMint),
+    invalidBefore:
+      invalidBefore === undefined ? undefined : BigInt(invalidBefore),
+    invalidAfter: invalidAfter === undefined ? undefined : BigInt(invalidAfter),
+    certificates: certificates?.map(normalizeITxBuildCert),
+    withdrawals: withdrawals?.map(normalizeITxBuildWithdrawal),
+    memo: memo ? String(memo) : undefined,
     metadata,
-    votingProcedures,
-    proposalProcedures,
-    currentTreasuryValue,
-    paymentToTreasury
-}: ITxBuildArgs ): NormalizedITxBuildArgs
-{
-    return {
-        inputs: inputs.map( normalizeITxBuildArgsInputs ),
-        change: change ? normalizeChangeInfos( change ) : undefined,
-        changeAddress: changeAddress ? (
-            changeAddress instanceof Address ? 
-                changeAddress : 
-                Address.fromString(typeof changeAddress === "string" ? changeAddress : changeAddress)
-        ) : undefined,
-        outputs: outputs?.map( txBuildOutToTxOut ),
-        readonlyRefInputs: readonlyRefInputs?.map( toUTxONoClone ),
-        requiredSigners: requiredSigners?.map( toPubKeyHash ),
-        collaterals: collaterals?.map( toUTxONoClone ),
-        collateralReturn: collateralReturn ? txBuildOutToTxOut( collateralReturn ) : undefined,
-        mints: mints?.map( normalizeITxBuildMint ),
-        invalidBefore: invalidBefore === undefined ? undefined : BigInt( invalidBefore ),
-        invalidAfter: invalidAfter === undefined ? undefined : BigInt( invalidAfter ),
-        certificates: certificates?.map( normalizeITxBuildCert ),
-        withdrawals: withdrawals?.map( normalizeITxBuildWithdrawal ),
-        memo: memo ? String( memo ) : undefined,
-        metadata,
-        votingProcedures:
-            Array.isArray( votingProcedures ) ?
-                votingProcedures.map( entry => {
-                    if( isIVotingProceduresEntry( entry ) )
-                    entry = {
-                        votingProcedure: entry,
-                        script: undefined // for js shape optimization
-                    };
-                    return normalizeITxBuildVotingProcedure( entry );
-                }) : undefined,
-        proposalProcedures:
-            Array.isArray( proposalProcedures ) ?
-                proposalProcedures.map(entry => {
-                    if( isIProposalProcedure( entry ) )
-                    entry = {
-                        proposalProcedure: entry,
-                        script: undefined
-                    }
-                    return normalizeITxBuildProposalProcedure( entry );
-                }) : undefined,
-        currentTreasuryValue: currentTreasuryValue === undefined ? undefined : BigInt( currentTreasuryValue ),
-        paymentToTreasury: paymentToTreasury === undefined ? undefined : BigInt( paymentToTreasury ),
-    };
+    votingProcedures: Array.isArray(votingProcedures)
+      ? votingProcedures.map((entry) => {
+          if (isIVotingProceduresEntry(entry))
+            entry = {
+              votingProcedure: entry,
+              script: undefined, // for js shape optimization
+            };
+          return normalizeITxBuildVotingProcedure(entry);
+        })
+      : undefined,
+    proposalProcedures: Array.isArray(proposalProcedures)
+      ? proposalProcedures.map((entry) => {
+          if (isIProposalProcedure(entry))
+            entry = {
+              proposalProcedure: entry,
+              script: undefined,
+            };
+          return normalizeITxBuildProposalProcedure(entry);
+        })
+      : undefined,
+    currentTreasuryValue:
+      currentTreasuryValue === undefined
+        ? undefined
+        : BigInt(currentTreasuryValue),
+    paymentToTreasury:
+      paymentToTreasury === undefined ? undefined : BigInt(paymentToTreasury),
+  };
 }
 
-function normalizeITxBuildArgsInputs( input: ITxBuildInput | IUTxO ): NormalizedITxBuildInput
-{
-    if( isIUTxO( input ) ) return { utxo: new UTxO( input ) };
-    return normalizeITxBuildInput( input );
+function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array | string | { _bytes: Uint8Array }): NormalizedITxBuildInput {
+  console.log("normalizeITxBuildArgsInputs", input);
+  console.log("normalizeITxBuildArgsInputs type", typeof input);
+
+  if (typeof input === "string") {
+    console.log("normalizeITxBuildArgsInputs: string", input);
+    try {
+      const cborData = fromHex(input);
+      const iUtxo = UTxO.fromCbor(cborData);
+      if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
+      return normalizeITxBuildInput({ utxo: new UTxO(iUtxo) });
+    } catch (error) {
+      throw new Error("Error processing CBOR data: " + (error as Error).message);
+    }
+  } else if (ArrayBuffer.isView(input)) {
+    console.log("normalizeITxBuildArgsInputs: Uint8Array", input);
+    try {
+      const iUtxo = UTxO.fromCbor(input);
+      if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
+      return normalizeITxBuildInput({ utxo: new UTxO(iUtxo) });
+    } catch (error) {
+      throw new Error("Error processing CBOR data: " + (error as Error).message);
+    }
+  } else if (input && typeof input === 'object' && '_bytes' in input && ArrayBuffer.isView(input._bytes)) {
+    console.log("normalizeITxBuildArgsInputs: Object with _bytes Uint8Array", input._bytes);
+    try {
+      const iUtxo = UTxO.fromCbor(input._bytes);
+      if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
+      return normalizeITxBuildInput({ utxo: new UTxO(iUtxo) });
+    } catch (error) {
+      throw new Error("Error processing CBOR data: " + (error as Error).message);
+    }
+  } else if (isIUTxO(input)) {
+    console.log("normalizeITxBuildArgsInputs: IUTxO", input);
+    return { utxo: new UTxO(input) };
+  } else {
+    console.log("normalizeITxBuildArgsInputs: ITxBuildInput", input);
+    return normalizeITxBuildInput(input);
+  }
 }
 
-function toUTxONoClone( utxo: IUTxO ): UTxO
-{
-    return utxo instanceof UTxO ? utxo : new UTxO( utxo );
+function toUTxONoClone(utxo: IUTxO): UTxO {
+  return utxo instanceof UTxO ? utxo : new UTxO(utxo);
 }
 
-function toPubKeyHash( hash: CanBeHash28 ): PubKeyHash
-{
-    return new PubKeyHash( hash );
+function toPubKeyHash(hash: CanBeHash28): PubKeyHash {
+  return new PubKeyHash(hash);
 }
 
 /** @deprecated use `normalizeITxBuildArgs` instead */
-export function cloneITxBuildArgs( args: ITxBuildArgs ): ITxBuildArgs
-{
-    return normalizeITxBuildArgs( args );
+export function cloneITxBuildArgs(args: ITxBuildArgs): ITxBuildArgs {
+  return normalizeITxBuildArgs(args);
 }
