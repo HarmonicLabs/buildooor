@@ -154,13 +154,9 @@ export function normalizeITxBuildArgs({
       paymentToTreasury === undefined ? undefined : BigInt(paymentToTreasury),
   };
 }
-
-function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array | string | { _bytes: Uint8Array }): NormalizedITxBuildInput {
-  console.log("normalizeITxBuildArgsInputs", input);
-  console.log("normalizeITxBuildArgsInputs type", typeof input);
-
+function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array | string): NormalizedITxBuildInput {
   if (typeof input === "string") {
-    console.log("normalizeITxBuildArgsInputs: string", input);
+    // console.log("normalizeITxBuildArgsInputs: string", input);
     try {
       const cborData = fromHex(input);
       const iUtxo = UTxO.fromCbor(cborData);
@@ -169,8 +165,8 @@ function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array |
     } catch (error) {
       throw new Error("Error processing CBOR data: " + (error as Error).message);
     }
-  } else if (ArrayBuffer.isView(input)) {
-    console.log("normalizeITxBuildArgsInputs: Uint8Array", input);
+  } else if (input instanceof Uint8Array) {
+    // console.log("normalizeITxBuildArgsInputs: Uint8Array", input);
     try {
       const iUtxo = UTxO.fromCbor(input);
       if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
@@ -178,20 +174,11 @@ function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array |
     } catch (error) {
       throw new Error("Error processing CBOR data: " + (error as Error).message);
     }
-  } else if (input && typeof input === 'object' && '_bytes' in input && ArrayBuffer.isView(input._bytes)) {
-    console.log("normalizeITxBuildArgsInputs: Object with _bytes Uint8Array", input._bytes);
-    try {
-      const iUtxo = UTxO.fromCbor(input._bytes);
-      if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
-      return normalizeITxBuildInput({ utxo: new UTxO(iUtxo) });
-    } catch (error) {
-      throw new Error("Error processing CBOR data: " + (error as Error).message);
-    }
   } else if (isIUTxO(input)) {
-    console.log("normalizeITxBuildArgsInputs: IUTxO", input);
+    // console.log("normalizeITxBuildArgsInputs: IUTxO", input);
     return { utxo: new UTxO(input) };
   } else {
-    console.log("normalizeITxBuildArgsInputs: ITxBuildInput", input);
+    // console.log("normalizeITxBuildArgsInputs: ITxBuildInput", input);
     return normalizeITxBuildInput(input);
   }
 }
