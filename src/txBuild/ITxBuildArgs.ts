@@ -1,4 +1,4 @@
-import { Address, AddressStr, CanBeHash28, Hash32, IProposalProcedure, IUTxO, IVotingProcedures, IVotingProceduresEntry, PubKeyHash, Script, TxMetadata, TxOut, UTxO, VotingProcedures, isIProposalProcedure, isIUTxO, isIVotingProceduresEntry } from "@harmoniclabs/cardano-ledger-ts";
+import { Address, AddressStr, CanBeHash28, Hash32, IProposalProcedure, IUTxO, IVotingProcedures, IVotingProceduresEntry, PubKeyHash, Script, TxMetadata, TxOut, UTxO, VotingProcedures, isIProposalProcedure, isITxOut, isIUTxO, isIVotingProceduresEntry } from "@harmoniclabs/cardano-ledger-ts";
 import { NormalizedITxBuildCert, type ITxBuildCert, normalizeITxBuildCert } from "./ITxBuildCert";
 import { NormalizedITxBuildInput, type ITxBuildInput, normalizeITxBuildInput } from "./ITxBuildInput/ITxBuildInput";
 import { NormalizedITxBuildMint, type ITxBuildMint, normalizeITxBuildMint } from "./ITxBuildMint";
@@ -8,6 +8,7 @@ import { CanBeUInteger } from "../utils/ints";
 import { ChangeInfos, NormalizedChangeInfos, normalizeChangeInfos } from "./ChangeInfos/ChangeInfos";
 import { ITxBuildVotingProcedure, NormalizedITxBuildVotingProcedure, normalizeITxBuildVotingProcedure } from "./ITxBuildVotingProcedure";
 import { ITxBuildProposalProcedure, NormalizedITxBuildProposalProcedure, normalizeITxBuildProposalProcedure } from "./ITxBuildProposalProcedure";
+
 import { fromHex } from "@harmoniclabs/uint8array-utils";
 
 export interface ITxBuildArgs {
@@ -26,7 +27,7 @@ export interface ITxBuildArgs {
   outputs?: ITxBuildOutput[],
   readonlyRefInputs?: IUTxO[],
   requiredSigners?: CanBeHash28[], // PubKeyHash[],
-    // readonlyRefInputs?: (IUTxO | string | Uint8Array)[];
+  // readonlyRefInputs?: (IUTxO | string | Uint8Array)[];
   // requiredSigners?: (CanBeHash28 | string | Uint8Array)[]; // PubKeyHash[],
   collaterals?: IUTxO[],
   collateralReturn?: ITxBuildOutput,
@@ -105,7 +106,7 @@ export function normalizeITxBuildArgs({
     inputs: inputs.map(normalizeITxBuildArgsInputs),
     change: change ? normalizeChangeInfos(change) : undefined,
     changeAddress: normalizeChangeAddress(changeAddress),
-    outputs: outputs?.map(txBuildOutToTxOut),
+    outputs: outputs?.map(normalizeTxBuildArgsOutputs),
     readonlyRefInputs: readonlyRefInputs?.map(toUTxONoClone),
     requiredSigners: requiredSigners?.map(toPubKeyHash),
     collaterals: collaterals?.map(toUTxONoClone),
@@ -148,9 +149,11 @@ export function normalizeITxBuildArgs({
       paymentToTreasury === undefined ? undefined : BigInt(paymentToTreasury),
   };
 }
-function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array | string): NormalizedITxBuildInput {
+
+
+//Check input type and convert to NormalizedITxBuildInput
+function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO  ): NormalizedITxBuildInput {
   if (typeof input === "string") {
-    // console.log("normalizeITxBuildArgsInputs: string", input);
     try {
       const cborData = fromHex(input);
       const iUtxo = UTxO.fromCbor(cborData);
@@ -160,7 +163,6 @@ function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array |
       throw new Error("Error processing CBOR data: " + (error as Error).message);
     }
   } else if (input instanceof Uint8Array) {
-    // console.log("normalizeITxBuildArgsInputs: Uint8Array", input);
     try {
       const iUtxo = UTxO.fromCbor(input);
       if (!isIUTxO(iUtxo)) throw new Error("Invalid UTxO structure");
@@ -169,10 +171,8 @@ function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | Uint8Array |
       throw new Error("Error processing CBOR data: " + (error as Error).message);
     }
   } else if (isIUTxO(input)) {
-    // console.log("normalizeITxBuildArgsInputs: IUTxO", input);
     return { utxo: new UTxO(input) };
   } else {
-    // console.log("normalizeITxBuildArgsInputs: ITxBuildInput", input);
     return normalizeITxBuildInput(input);
   }
 }
@@ -180,7 +180,6 @@ function normalizeChangeAddress(changeAddress: Address | AddressStr | undefined)
   if (changeAddress === undefined) {
     return undefined;
   }
-
   if (changeAddress instanceof Address) {
     return changeAddress; // Already an Address, no conversion needed
   } else if (typeof changeAddress === "string") {
@@ -193,8 +192,32 @@ function normalizeChangeAddress(changeAddress: Address | AddressStr | undefined)
     throw new Error("Invalid changeAddress type. Expected Address or string.");
   }
 }
+function normalizeTxBuildArgsOutputs (output: TxOut ): TxOut {
+  if (typeof output === "string") {
+    try {
+      const cborData = fromHex(output);
+      // console.log(" outputs cborData", cborData);
+      const txOut = txBuildOutToTxOut( TxOut.fromCbor(cborData)) ;
+      console.log("is txOut: ", isITxOut(txOut));
+      if (!isITxOut(txOut)) throw new Error("Invalid TxOut structure");
+      return txOut;
+    } catch (error) {
+      throw new Error("Error processing CBORstring data: " + (error as Error).message);
+    }
+  }else if (output instanceof Uint8Array) {
+    try {
+      const txOut = txBuildOutToTxOut(TxOut.fromCbor(output));
+      if (!isITxOut(txOut)) throw new Error("Invalid TxOut structure");
+      return txOut;
+    } catch (error) {
+      throw new Error("Error processing CBOR data: " + (error as Error).message);
+    }
+  }
+  return txBuildOutToTxOut(output);
+}
 
 function toUTxONoClone(utxo: IUTxO): UTxO {
+
   return utxo instanceof UTxO ? utxo : new UTxO(utxo);
 }
 
