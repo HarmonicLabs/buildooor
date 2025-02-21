@@ -84,9 +84,9 @@ export function normalizeITxBuildArgs({ inputs, change, changeAddress, outputs, 
         change: change ? normalizeChangeInfos(change) : undefined,
         changeAddress: normalizeChangeAddress(changeAddress),
         outputs: outputs?.map(normalizeTxBuildArgsOutputs),
-        readonlyRefInputs: readonlyRefInputs?.map(normalizeReadonlyRefInputs),
+        readonlyRefInputs: readonlyRefInputs?.map(nomalizeUTXOInput),
         requiredSigners: requiredSigners?.map(toPubKeyHash),
-        collaterals: collaterals?.map(toUTxONoClone),
+        collaterals: collaterals?.map(nomalizeUTXOInput),
         collateralReturn: collateralReturn ? txBuildOutToTxOut(collateralReturn) : undefined,
         mints: mints?.map(normalizeITxBuildMint),
         invalidBefore: invalidBefore === undefined ? undefined : BigInt(invalidBefore),
@@ -149,6 +149,8 @@ function normalizeChangeAddress(changeAddress: Address | AddressStr | CanBeCborS
         return changeAddress;
     }
 }
+
+/** Check output type and convert to TxOut */
 function normalizeTxBuildArgsOutputs(output: TxOut): TxOut {
     if (canBeCborString(output)) {
         const cborData = forceCborString(output);
@@ -161,22 +163,12 @@ function normalizeTxBuildArgsOutputs(output: TxOut): TxOut {
     return txBuildOutToTxOut(output);
 }
 
-/* Could Probably rename the Function to something differnt and reuse between toUTxONoClone */
-
-function normalizeReadonlyRefInputs(utxo: IUTxO | CanBeCborString): UTxO {
-    if (canBeCborString(utxo)) {
-        const cborData = forceCborString(utxo);
+function nomalizeUTXOInput(input: IUTxO | CanBeCborString): UTxO {
+    if (canBeCborString(input)) {
+        const cborData = forceCborString(input);
         return UTxO.fromCbor(cborData);
     }
-    return new UTxO(utxo);
-}
-
-function toUTxONoClone(utxo: IUTxO | CanBeCborString): UTxO {
-    if (canBeCborString(utxo)) {
-        const cborData = forceCborString(utxo);
-        return UTxO.fromCbor(cborData);
-    }
-    return new UTxO(utxo);
+    return new UTxO(input);
 }
 
 function toPubKeyHash(hash: CanBeHash28): PubKeyHash {
