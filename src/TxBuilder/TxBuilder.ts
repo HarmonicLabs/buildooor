@@ -190,6 +190,21 @@ export class TxBuilder
         return BigInt( this.protocolParamters.utxoCostPerByte ) * size;
     }
 
+    addMinLovelacesIfMissing( txOut: TxOut ): TxOut
+    {
+        if( txOut.value.lovelaces > 0 ) return txOut.clone();
+
+        return this.minimizeLovelaces({
+            address: txOut.address,
+            value: Value.add(
+                Value.lovelaces( this.getMinimumOutputLovelaces( txOut ) + BigInt( 1_000_000 ) ),
+                txOut.value
+            ),
+            datum: txOut.datum,
+            refScript: txOut.refScript
+        });
+    }
+
     minimizeLovelaces( out: ITxOut ): TxOut
     {
         const o = out instanceof TxOut ? out : txBuildOutToTxOut( out )
@@ -547,7 +562,7 @@ export class TxBuilder
 
             for( let i = 0; i < outs.length; i++ )
             {
-                txOuts[i] = outs[i].clone(); 
+                txOuts[i] = this.addMinLovelacesIfMissing( outs[i] ); 
             }
             txOuts[ txOuts.length - 1 ] = (
                 new TxOut({
@@ -1366,7 +1381,7 @@ export class TxBuilder
         const minFee = this.calcMinFee( dummyTx  );
 
         const txOuts: TxOut[] = new Array( outs.length + 1 ); 
-        outs.forEach( (txO,i) => txOuts[i] = txO.clone() );
+        outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );
         const changeOutput =new TxOut({
             address: change.address,
             value: Value.sub(
