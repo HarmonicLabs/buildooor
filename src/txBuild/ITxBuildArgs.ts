@@ -4,7 +4,7 @@ import { NormalizedITxBuildInput, type ITxBuildInput, normalizeITxBuildInput } f
 import { NormalizedITxBuildMint, type ITxBuildMint, normalizeITxBuildMint } from "./ITxBuildMint";
 import { txBuildOutToTxOut, type ITxBuildOutput } from "./ITxBuildOutput";
 import { NormalizedITxBuildWithdrawal, type ITxBuildWithdrawal, normalizeITxBuildWithdrawal } from "./ITxBuildWithdrawal";
-import { CanBeUInteger } from "../utils/ints";
+import { canBeUInteger, CanBeUInteger } from "../utils/ints";
 import { ChangeInfos, NormalizedChangeInfos, normalizeChangeInfos } from "./ChangeInfos/ChangeInfos";
 import { ITxBuildVotingProcedure, NormalizedITxBuildVotingProcedure, normalizeITxBuildVotingProcedure } from "./ITxBuildVotingProcedure";
 import { ITxBuildProposalProcedure, NormalizedITxBuildProposalProcedure, normalizeITxBuildProposalProcedure } from "./ITxBuildProposalProcedure";
@@ -32,6 +32,8 @@ export interface ITxBuildArgs {
     invalidAfter?: CanBeUInteger,
     certificates?: ITxBuildCert[],
     withdrawals?: ITxBuildWithdrawal[],
+    /** explicitly sets the fee (if higher than calculated minFee) */
+    fee?: CanBeUInteger,
     /**
      * # metadata message following cip20
      * 
@@ -61,6 +63,7 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     invalidAfter?: CanBeUInteger,
     certificates?: NormalizedITxBuildCert[],
     withdrawals?: NormalizedITxBuildWithdrawal[],
+    fee?: bigint,
     /**
      * # metadata message following cip20
      * 
@@ -89,6 +92,7 @@ export function normalizeITxBuildArgs({
     invalidAfter,
     certificates,
     withdrawals,
+    fee,
     memo,
     metadata,
     votingProcedures,
@@ -115,6 +119,7 @@ export function normalizeITxBuildArgs({
         invalidAfter: invalidAfter === undefined ? undefined : BigInt( invalidAfter ),
         certificates: certificates?.map( normalizeITxBuildCert ),
         withdrawals: withdrawals?.map( normalizeITxBuildWithdrawal ),
+        fee: canBeUInteger( fee ) ? BigInt( fee ) : undefined,
         memo: memo ? String( memo ) : undefined,
         metadata,
         votingProcedures:

@@ -4,7 +4,7 @@ import { GenesisInfos, NormalizedGenesisInfos, defaultMainnetGenesisInfos, defau
 import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostModelsV3, defaultV3Costs, CostModelsToLanguageViewCborOpts } from "@harmoniclabs/cardano-costmodels-ts";
 import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
-import { byte, blake2b_256 } from "@harmoniclabs/crypto";
+import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
 import { Machine, ExBudget } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC } from "@harmoniclabs/uplc";
@@ -120,11 +120,14 @@ export class TxBuilder
         );
     }
 
-    calcLinearFee( tx: Tx | CborString ): bigint
+    private calcLinearFee( tx: Tx | CborString ): bigint
     {
         return (
             forceBigUInt( this.protocolParamters.txFeePerByte ) *
-            BigInt( (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length ) +
+            BigInt(
+                (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length
+                + 2 // for good measure
+            ) +
             forceBigUInt( this.protocolParamters.txFeeFixed )
         );
     }
@@ -160,9 +163,10 @@ export class TxBuilder
             // each vkey witness has fixed size of 102 cbor bytes
             // (1 bytes cbor array tag (length 2)) + (34 cbor bytes of length 32) + (67 cbor bytes of length 64)
             // for a fixed length of 102
-            BigInt( 102 ) * nVkeyWits * minFeeMultiplier +
+            // we also add 2 for possible unwanted encoding
+            BigInt( 104 ) * nVkeyWits * minFeeMultiplier +
             // we add some more bytes for the array tag
-            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 3) ) * minFeeMultiplier;
+            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
 
          return minFee;
     }
@@ -1378,7 +1382,8 @@ export class TxBuilder
             isScriptValid
         });
 
-        const minFee = this.calcMinFee( dummyTx  );
+        let minFee = this.calcMinFee( dummyTx );
+        if( typeof args.fee === "bigint" && args.fee > minFee ) minFee = args.fee; 
 
         const txOuts: TxOut[] = new Array( outs.length + 1 ); 
         outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );
@@ -1421,7 +1426,6 @@ export class TxBuilder
             requiredOutputValue,
             outs,
             change,
-            
         };
     }
 
