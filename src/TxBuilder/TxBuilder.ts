@@ -132,7 +132,7 @@ export class TxBuilder
         );
     }
 
-    calcMinFee( tx: Tx ): bigint
+    calcMinFee( tx: Tx, minimum?: CanBeUInteger | undefined ): bigint
     {
         const totRefScriptBytes = (tx.body.refInputs ?? [])
         .reduce((sum, refIn) => {
@@ -168,7 +168,11 @@ export class TxBuilder
             // we add some more bytes for the array tag
             BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
 
-         return minFee;
+        if( !canBeUInteger( minimum ) ) return minFee;
+
+        const min = forceBigUInt( minimum );
+
+        return minFee < min ? min : minFee;
     }
 
     getMinimumOutputLovelaces( tx_out: TxOut | CanBeCborString ): bigint
@@ -548,7 +552,7 @@ export class TxBuilder
                 )
             }
 
-            minFee = this.calcMinFee( tx );
+            minFee = this.calcMinFee( tx, buildArgs.fee );
 
             fee = minFee +
                 ((totExBudget.mem * memRational.num) / memRational.den) +
@@ -1382,8 +1386,7 @@ export class TxBuilder
             isScriptValid
         });
 
-        let minFee = this.calcMinFee( dummyTx );
-        if( typeof args.fee === "bigint" && args.fee > minFee ) minFee = args.fee; 
+        let minFee = this.calcMinFee( dummyTx, args.fee );
 
         const txOuts: TxOut[] = new Array( outs.length + 1 ); 
         outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );
