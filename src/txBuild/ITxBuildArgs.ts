@@ -1,4 +1,4 @@
-import { Address, isAddressStr, AddressStr, CanBeHash28, Hash32, IProposalProcedure, IUTxO, IVotingProcedures, IVotingProceduresEntry, PubKeyHash, Script, TxMetadata, TxOut, UTxO, VotingProcedures, isIProposalProcedure, isITxOut, isIUTxO, isIVotingProceduresEntry } from "@harmoniclabs/cardano-ledger-ts";
+import { Address, AddressStr, CanBeHash28, Hash32, IProposalProcedure, IUTxO, IVotingProcedures, IVotingProceduresEntry, PubKeyHash, Script, TxMetadata, TxOut, UTxO, VotingProcedures, isIProposalProcedure, isIUTxO, isIVotingProceduresEntry } from "@harmoniclabs/cardano-ledger-ts";
 import { NormalizedITxBuildCert, type ITxBuildCert, normalizeITxBuildCert } from "./ITxBuildCert";
 import { NormalizedITxBuildInput, type ITxBuildInput, normalizeITxBuildInput } from "./ITxBuildInput/ITxBuildInput";
 import { NormalizedITxBuildMint, type ITxBuildMint, normalizeITxBuildMint } from "./ITxBuildMint";
@@ -8,11 +8,9 @@ import { canBeUInteger, CanBeUInteger } from "../utils/ints";
 import { ChangeInfos, NormalizedChangeInfos, normalizeChangeInfos } from "./ChangeInfos/ChangeInfos";
 import { ITxBuildVotingProcedure, NormalizedITxBuildVotingProcedure, normalizeITxBuildVotingProcedure } from "./ITxBuildVotingProcedure";
 import { ITxBuildProposalProcedure, NormalizedITxBuildProposalProcedure, normalizeITxBuildProposalProcedure } from "./ITxBuildProposalProcedure";
-import { CanBeCborString, forceCborString, canBeCborString } from "@harmoniclabs/cbor";
-import { fromHex } from "@harmoniclabs/uint8array-utils";
 
 export interface ITxBuildArgs {
-    inputs: (ITxBuildInput | IUTxO)[];
+    inputs: (ITxBuildInput | IUTxO)[],
     /**
      * same as `changeAddress` but allows to specify datums and ref scripts
      * @example
@@ -22,7 +20,7 @@ export interface ITxBuildArgs {
      * });
      * ```
      */
-    changeAddress?: Address | AddressStr | CanBeCborString;
+    changeAddress?: Address | AddressStr,
     change?: ChangeInfos;
     outputs?: ITxBuildOutput[],
     readonlyRefInputs?: IUTxO[],
@@ -38,23 +36,23 @@ export interface ITxBuildArgs {
     fee?: CanBeUInteger,
     /**
      * # metadata message following cip20
-     *
-     * overwrites the metadata at label 674 if already present.
+     * 
+     * overwrites the metadata at label 674 if already present. 
      **/
-    memo?: string;
-    metadata?: TxMetadata;
+    memo?: string,
+    metadata?: TxMetadata,
     // conway
-    votingProcedures?: (IVotingProceduresEntry | ITxBuildVotingProcedure)[];
-    proposalProcedures?: (IProposalProcedure | ITxBuildProposalProcedure)[];
-    currentTreasuryValue?: CanBeUInteger;
-    paymentToTreasury?: CanBeUInteger;
+    votingProcedures?: (IVotingProceduresEntry | ITxBuildVotingProcedure)[],
+    proposalProcedures?: (IProposalProcedure | ITxBuildProposalProcedure)[],
+    currentTreasuryValue?: CanBeUInteger,
+    paymentToTreasury?: CanBeUInteger
 }
 
 export interface NormalizedITxBuildArgs extends ITxBuildArgs {
-    inputs: NormalizedITxBuildInput[];
-    changeAddress?: Address;
+    inputs: NormalizedITxBuildInput[],
+    changeAddress?: Address,
     change?: NormalizedChangeInfos;
-    outputs?: TxOut[];
+    outputs?: TxOut[],
     // era?: Era // latest
     readonlyRefInputs?: UTxO[],
     requiredSigners?: PubKeyHash[],
@@ -68,16 +66,16 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     fee?: bigint,
     /**
      * # metadata message following cip20
-     *
-     * overwrites the metadata at label 674 if already present.
+     * 
+     * overwrites the metadata at label 674 if already present. 
      **/
-    memo?: string;
-    metadata?: TxMetadata;
+    memo?: string,
+    metadata?: TxMetadata,
     // conway
-    votingProcedures?: NormalizedITxBuildVotingProcedure[];
-    proposalProcedures?: NormalizedITxBuildProposalProcedure[];
-    currentTreasuryValue?: CanBeUInteger;
-    paymentToTreasury?: CanBeUInteger;
+    votingProcedures?: NormalizedITxBuildVotingProcedure[],
+    proposalProcedures?: NormalizedITxBuildProposalProcedure[],
+    currentTreasuryValue?: bigint,
+    paymentToTreasury?: bigint
 }
 
 export function normalizeITxBuildArgs({
@@ -124,87 +122,49 @@ export function normalizeITxBuildArgs({
         fee: canBeUInteger( fee ) ? BigInt( fee ) : undefined,
         memo: memo ? String( memo ) : undefined,
         metadata,
-        votingProcedures: Array.isArray(votingProcedures)
-            ? votingProcedures.map((entry) => {
-                  if (isIVotingProceduresEntry(entry))
-                      entry = {
-                          votingProcedure: entry,
-                          script: undefined, // for js shape optimization
-                      };
-                  return normalizeITxBuildVotingProcedure(entry);
-              })
-            : undefined,
-        proposalProcedures: Array.isArray(proposalProcedures)
-            ? proposalProcedures.map((entry) => {
-                  if (isIProposalProcedure(entry))
-                      entry = {
-                          proposalProcedure: entry,
-                          script: undefined,
-                      };
-                  return normalizeITxBuildProposalProcedure(entry);
-              })
-            : undefined,
-        currentTreasuryValue: currentTreasuryValue === undefined ? undefined : BigInt(currentTreasuryValue),
-        paymentToTreasury: paymentToTreasury === undefined ? undefined : BigInt(paymentToTreasury),
+        votingProcedures:
+            Array.isArray( votingProcedures ) ?
+                votingProcedures.map( entry => {
+                    if( isIVotingProceduresEntry( entry ) )
+                    entry = {
+                        votingProcedure: entry,
+                        script: undefined // for js shape optimization
+                    };
+                    return normalizeITxBuildVotingProcedure( entry );
+                }) : undefined,
+        proposalProcedures:
+            Array.isArray( proposalProcedures ) ?
+                proposalProcedures.map(entry => {
+                    if( isIProposalProcedure( entry ) )
+                    entry = {
+                        proposalProcedure: entry,
+                        script: undefined
+                    }
+                    return normalizeITxBuildProposalProcedure( entry );
+                }) : undefined,
+        currentTreasuryValue: currentTreasuryValue === undefined ? undefined : BigInt( currentTreasuryValue ),
+        paymentToTreasury: paymentToTreasury === undefined ? undefined : BigInt( paymentToTreasury ),
     };
 }
 
-/** Check input type and convert to NormalizedITxBuildInput */
-function normalizeITxBuildArgsInputs(input: ITxBuildInput | IUTxO | CanBeCborString): NormalizedITxBuildInput {
-    if (canBeCborString(input)) {
-        const cborData = forceCborString(input);
-        const iUtxo = UTxO.fromCbor(cborData);
-        return normalizeITxBuildInput({ utxo: iUtxo });
-    }
-    if (isIUTxO(input)) {
-        return { utxo: new UTxO(input) };
-    }
-    return normalizeITxBuildInput(input as ITxBuildInput);
-}
-/** Check Changeaddress type and convert to normalizeChangeAddress */
-function normalizeChangeAddress(changeAddress: Address | AddressStr | CanBeCborString | undefined): Address | undefined {
-    if (changeAddress === undefined) {
-        return undefined;
-    }
-    if (isAddressStr(changeAddress)) {
-        return Address.fromString(changeAddress);
-    }
-    if (canBeCborString(changeAddress)) {
-        const cborData = forceCborString(changeAddress);
-        console.log("address cborData: ", cborData);
-        return Address.fromCbor(cborData);
-    }
-    if (changeAddress instanceof Address) {
-        return changeAddress;
-    }
+function normalizeITxBuildArgsInputs( input: ITxBuildInput | IUTxO ): NormalizedITxBuildInput
+{
+    if( isIUTxO( input ) ) return { utxo: new UTxO( input ) };
+    return normalizeITxBuildInput( input );
 }
 
-/** Check output type and convert to TxOut */
-function normalizeTxBuildArgsOutputs(output: TxOut): TxOut {
-    if (canBeCborString(output)) {
-        const cborData = forceCborString(output);
-        const txout = TxOut.fromCbor(cborData);
-        return txBuildOutToTxOut(txout);
-    }
-    if (isITxOut(output)) {
-        return txBuildOutToTxOut(output);
-    }
-    return txBuildOutToTxOut(output);
+function toUTxONoClone( utxo: IUTxO ): UTxO
+{
+    return utxo instanceof UTxO ? utxo : new UTxO( utxo );
 }
 
-function nomalizeUTXO(input: IUTxO | CanBeCborString): UTxO {
-    if (canBeCborString(input)) {
-        const cborData = forceCborString(input);
-        return UTxO.fromCbor(cborData);
-    }
-    return new UTxO(input);
-}
-
-function toPubKeyHash(hash: CanBeHash28): PubKeyHash {
-    return new PubKeyHash(hash);
+function toPubKeyHash( hash: CanBeHash28 ): PubKeyHash
+{
+    return new PubKeyHash( hash );
 }
 
 /** @deprecated use `normalizeITxBuildArgs` instead */
-export function cloneITxBuildArgs(args: ITxBuildArgs): ITxBuildArgs {
-    return normalizeITxBuildArgs(args);
+export function cloneITxBuildArgs( args: ITxBuildArgs ): ITxBuildArgs
+{
+    return normalizeITxBuildArgs( args );
 }
