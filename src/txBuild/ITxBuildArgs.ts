@@ -106,15 +106,11 @@ export function normalizeITxBuildArgs({
     return {
         inputs: inputs.map( normalizeITxBuildArgsInputs ),
         change: change ? normalizeChangeInfos( change ) : undefined,
-        changeAddress: changeAddress ? (
-            typeof changeAddress === "string" ?
-                Address.fromString( changeAddress ):
-                changeAddress
-        ) : undefined,
+        changeAddress: normalizeChangeAddress(changeAddress),
         outputs: outputs?.map( txBuildOutToTxOut ),
-        readonlyRefInputs: readonlyRefInputs?.map( toUTxONoClone ),
+        readonlyRefInputs: readonlyRefInputs?.map(nomalizeUTXO),
         requiredSigners: requiredSigners?.map( toPubKeyHash ),
-        collaterals: collaterals?.map( toUTxONoClone ),
+        collaterals: collaterals?.map( nomalizeUTXO ),
         collateralReturn: collateralReturn ? txBuildOutToTxOut( collateralReturn ) : undefined,
         mints: mints?.map( normalizeITxBuildMint ),
         invalidBefore: invalidBefore === undefined ? undefined : BigInt( invalidBefore ),
