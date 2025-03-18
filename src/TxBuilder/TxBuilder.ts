@@ -120,14 +120,11 @@ export class TxBuilder
         );
     }
 
-    private calcLinearFee( tx: Tx | CborString ): bigint
+    calcLinearFee( tx: Tx | CborString ): bigint
     {
         return (
             forceBigUInt( this.protocolParamters.txFeePerByte ) *
-            BigInt(
-                (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length
-                + 2 // for good measure
-            ) +
+            BigInt( (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length ) +
             forceBigUInt( this.protocolParamters.txFeeFixed )
         );
     }
@@ -154,7 +151,7 @@ export class TxBuilder
         );
 
         const minFeeMultiplier = forceBigUInt( this.protocolParamters.txFeePerByte );
-        
+        console.log("minFeeMultiplier: ", minFeeMultiplier);
         const nVkeyWits = BigInt( estimateMaxSignersNeeded( tx ) );
       
         const minFee = this.calcLinearFee( tx ) +
@@ -164,9 +161,9 @@ export class TxBuilder
             // (1 bytes cbor array tag (length 2)) + (34 cbor bytes of length 32) + (67 cbor bytes of length 64)
             // for a fixed length of 102
             // we also add 2 for possible unwanted encoding
-            BigInt( 104 ) * nVkeyWits * minFeeMultiplier +
+            BigInt( 102 ) * nVkeyWits * minFeeMultiplier +
             // we add some more bytes for the array tag
-            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
+            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 3) ) * minFeeMultiplier;
 
         if( !canBeUInteger( minimum ) ) return minFee;
 
@@ -551,8 +548,6 @@ export class TxBuilder
                     "unrecoignized redeemer tag " + tag
                 )
             }
-
-            minFee = this.calcMinFee( tx, buildArgs.fee );
 
             fee = minFee +
                 ((totExBudget.mem * memRational.num) / memRational.den) +
@@ -1386,7 +1381,7 @@ export class TxBuilder
             isScriptValid
         });
 
-        let minFee = this.calcMinFee( dummyTx, args.fee );
+        const minFee = this.calcMinFee( dummyTx  );
 
         const txOuts: TxOut[] = new Array( outs.length + 1 ); 
         outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );

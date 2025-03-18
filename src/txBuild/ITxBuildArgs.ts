@@ -35,7 +35,6 @@ export interface ITxBuildArgs {
     certificates?: ITxBuildCert[],
     withdrawals?: ITxBuildWithdrawal[],
     /** explicitly sets the fee (if higher than calculated minFee) */
-    fee?: CanBeUInteger,
     /**
      * # metadata message following cip20
      *
@@ -94,7 +93,6 @@ export function normalizeITxBuildArgs({
     invalidAfter,
     certificates,
     withdrawals,
-    fee,
     memo,
     metadata,
     votingProcedures,
@@ -117,7 +115,6 @@ export function normalizeITxBuildArgs({
         invalidAfter: invalidAfter === undefined ? undefined : BigInt( invalidAfter ),
         certificates: certificates?.map( normalizeITxBuildCert ),
         withdrawals: withdrawals?.map( normalizeITxBuildWithdrawal ),
-        fee: canBeUInteger( fee ) ? BigInt( fee ) : undefined,
         memo: memo ? String( memo ) : undefined,
         metadata,
         votingProcedures: Array.isArray(votingProcedures)
