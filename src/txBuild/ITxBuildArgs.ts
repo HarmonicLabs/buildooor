@@ -1,4 +1,3 @@
-
 import { Address, isAddressStr, AddressStr, CanBeHash28, Hash32, IProposalProcedure, IUTxO, IVotingProcedures, IVotingProceduresEntry, PubKeyHash, Script, TxMetadata, TxOut, UTxO, VotingProcedures, isIProposalProcedure, isITxOut, isIUTxO, isIVotingProceduresEntry } from "@harmoniclabs/cardano-ledger-ts";
 import { NormalizedITxBuildCert, type ITxBuildCert, normalizeITxBuildCert } from "./ITxBuildCert";
 import { NormalizedITxBuildInput, type ITxBuildInput, normalizeITxBuildInput } from "./ITxBuildInput/ITxBuildInput";
