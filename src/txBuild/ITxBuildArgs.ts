@@ -4,7 +4,7 @@ import { NormalizedITxBuildInput, type ITxBuildInput, normalizeITxBuildInput } f
 import { NormalizedITxBuildMint, type ITxBuildMint, normalizeITxBuildMint } from "./ITxBuildMint";
 import { txBuildOutToTxOut, type ITxBuildOutput } from "./ITxBuildOutput";
 import { NormalizedITxBuildWithdrawal, type ITxBuildWithdrawal, normalizeITxBuildWithdrawal } from "./ITxBuildWithdrawal";
-import { CanBeUInteger } from "../utils/ints";
+import { canBeUInteger, CanBeUInteger } from "../utils/ints";
 import { ChangeInfos, NormalizedChangeInfos, normalizeChangeInfos } from "./ChangeInfos/ChangeInfos";
 import { ITxBuildVotingProcedure, NormalizedITxBuildVotingProcedure, normalizeITxBuildVotingProcedure } from "./ITxBuildVotingProcedure";
 import { ITxBuildProposalProcedure, NormalizedITxBuildProposalProcedure, normalizeITxBuildProposalProcedure } from "./ITxBuildProposalProcedure";
@@ -24,17 +24,18 @@ export interface ITxBuildArgs {
      */
     changeAddress?: Address | AddressStr | CanBeCborString;
     change?: ChangeInfos;
-    outputs?: ITxBuildOutput[];
-    readonlyRefInputs?: IUTxO[];
-    requiredSigners?: CanBeHash28[]; // PubKeyHash[],
-    collaterals?: IUTxO[];
-    collateralReturn?: ITxBuildOutput;
-    mints?: ITxBuildMint[];
-    invalidBefore?: CanBeUInteger;
-    invalidAfter?: CanBeUInteger;
-    certificates?: ITxBuildCert[];
-    withdrawals?: ITxBuildWithdrawal[];
-
+    outputs?: ITxBuildOutput[],
+    readonlyRefInputs?: IUTxO[],
+    requiredSigners?: CanBeHash28[], // PubKeyHash[],
+    collaterals?: IUTxO[],
+    collateralReturn?: ITxBuildOutput,
+    mints?: ITxBuildMint[],
+    invalidBefore?: CanBeUInteger,
+    invalidAfter?: CanBeUInteger,
+    certificates?: ITxBuildCert[],
+    withdrawals?: ITxBuildWithdrawal[],
+    /** explicitly sets the fee (if higher than calculated minFee) */
+    fee?: CanBeUInteger,
     /**
      * # metadata message following cip20
      *
@@ -55,15 +56,16 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     change?: NormalizedChangeInfos;
     outputs?: TxOut[];
     // era?: Era // latest
-    readonlyRefInputs?: UTxO[];
-    requiredSigners?: PubKeyHash[];
-    collaterals?: UTxO[];
-    collateralReturn?: TxOut;
-    mints?: NormalizedITxBuildMint[];
-    invalidBefore?: CanBeUInteger;
-    invalidAfter?: CanBeUInteger;
-    certificates?: NormalizedITxBuildCert[];
-    withdrawals?: NormalizedITxBuildWithdrawal[];
+    readonlyRefInputs?: UTxO[],
+    requiredSigners?: PubKeyHash[],
+    collaterals?: UTxO[],
+    collateralReturn?: TxOut,
+    mints?: NormalizedITxBuildMint[],
+    invalidBefore?: CanBeUInteger,
+    invalidAfter?: CanBeUInteger,
+    certificates?: NormalizedITxBuildCert[],
+    withdrawals?: NormalizedITxBuildWithdrawal[],
+    fee?: bigint,
     /**
      * # metadata message following cip20
      *
@@ -78,22 +80,49 @@ export interface NormalizedITxBuildArgs extends ITxBuildArgs {
     paymentToTreasury?: CanBeUInteger;
 }
 
-export function normalizeITxBuildArgs({ inputs, change, changeAddress, outputs, readonlyRefInputs, requiredSigners, collaterals, collateralReturn, mints, invalidBefore, invalidAfter, certificates, withdrawals, memo, metadata, votingProcedures, proposalProcedures, currentTreasuryValue, paymentToTreasury }: ITxBuildArgs): NormalizedITxBuildArgs {
+export function normalizeITxBuildArgs({
+    inputs,
+    change,
+    changeAddress,
+    outputs,
+    readonlyRefInputs,
+    requiredSigners,
+    collaterals,
+    collateralReturn,
+    mints,
+    invalidBefore,
+    invalidAfter,
+    certificates,
+    withdrawals,
+    fee,
+    memo,
+    metadata,
+    votingProcedures,
+    proposalProcedures,
+    currentTreasuryValue,
+    paymentToTreasury
+}: ITxBuildArgs ): NormalizedITxBuildArgs
+{
     return {
-        inputs: inputs.map(normalizeITxBuildArgsInputs),
-        change: change ? normalizeChangeInfos(change) : undefined,
-        changeAddress: normalizeChangeAddress(changeAddress),
-        outputs: outputs?.map(normalizeTxBuildArgsOutputs),
-        readonlyRefInputs: readonlyRefInputs?.map(nomalizeUTXO),
-        requiredSigners: requiredSigners?.map(toPubKeyHash),
-        collaterals: collaterals?.map(nomalizeUTXO),
-        collateralReturn: collateralReturn ? txBuildOutToTxOut(collateralReturn) : undefined,
-        mints: mints?.map(normalizeITxBuildMint),
-        invalidBefore: invalidBefore === undefined ? undefined : BigInt(invalidBefore),
-        invalidAfter: invalidAfter === undefined ? undefined : BigInt(invalidAfter),
-        certificates: certificates?.map(normalizeITxBuildCert),
-        withdrawals: withdrawals?.map(normalizeITxBuildWithdrawal),
-        memo: memo ? String(memo) : undefined,
+        inputs: inputs.map( normalizeITxBuildArgsInputs ),
+        change: change ? normalizeChangeInfos( change ) : undefined,
+        changeAddress: changeAddress ? (
+            typeof changeAddress === "string" ?
+                Address.fromString( changeAddress ):
+                changeAddress
+        ) : undefined,
+        outputs: outputs?.map( txBuildOutToTxOut ),
+        readonlyRefInputs: readonlyRefInputs?.map( toUTxONoClone ),
+        requiredSigners: requiredSigners?.map( toPubKeyHash ),
+        collaterals: collaterals?.map( toUTxONoClone ),
+        collateralReturn: collateralReturn ? txBuildOutToTxOut( collateralReturn ) : undefined,
+        mints: mints?.map( normalizeITxBuildMint ),
+        invalidBefore: invalidBefore === undefined ? undefined : BigInt( invalidBefore ),
+        invalidAfter: invalidAfter === undefined ? undefined : BigInt( invalidAfter ),
+        certificates: certificates?.map( normalizeITxBuildCert ),
+        withdrawals: withdrawals?.map( normalizeITxBuildWithdrawal ),
+        fee: canBeUInteger( fee ) ? BigInt( fee ) : undefined,
+        memo: memo ? String( memo ) : undefined,
         metadata,
         votingProcedures: Array.isArray(votingProcedures)
             ? votingProcedures.map((entry) => {

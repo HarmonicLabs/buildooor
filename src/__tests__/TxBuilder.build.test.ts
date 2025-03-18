@@ -16,7 +16,7 @@ describe("build time", () => {
         }
     );
 
-    test("assert min out lovelaces", () => {
+    test.skip("assert min out lovelaces", () => {
 
         expect(
             () => {

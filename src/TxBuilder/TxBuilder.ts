@@ -4,7 +4,7 @@ import { GenesisInfos, NormalizedGenesisInfos, defaultMainnetGenesisInfos, defau
 import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostModelsV3, defaultV3Costs, CostModelsToLanguageViewCborOpts } from "@harmoniclabs/cardano-costmodels-ts";
 import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
-import { byte, blake2b_256 } from "@harmoniclabs/crypto";
+import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
 import { Machine, ExBudget } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC } from "@harmoniclabs/uplc";
@@ -120,16 +120,19 @@ export class TxBuilder
         );
     }
 
-    calcLinearFee( tx: Tx | CborString ): bigint
+    private calcLinearFee( tx: Tx | CborString ): bigint
     {
         return (
             forceBigUInt( this.protocolParamters.txFeePerByte ) *
-            BigInt( (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length ) +
+            BigInt(
+                (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length
+                + 2 // for good measure
+            ) +
             forceBigUInt( this.protocolParamters.txFeeFixed )
         );
     }
 
-    calcMinFee( tx: Tx ): bigint
+    calcMinFee( tx: Tx, minimum?: CanBeUInteger | undefined ): bigint
     {
         const totRefScriptBytes = (tx.body.refInputs ?? [])
         .reduce((sum, refIn) => {
@@ -160,11 +163,16 @@ export class TxBuilder
             // each vkey witness has fixed size of 102 cbor bytes
             // (1 bytes cbor array tag (length 2)) + (34 cbor bytes of length 32) + (67 cbor bytes of length 64)
             // for a fixed length of 102
-            BigInt( 102 ) * nVkeyWits * minFeeMultiplier +
+            // we also add 2 for possible unwanted encoding
+            BigInt( 104 ) * nVkeyWits * minFeeMultiplier +
             // we add some more bytes for the array tag
-            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 3) ) * minFeeMultiplier;
+            BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
 
-         return minFee;
+        if( !canBeUInteger( minimum ) ) return minFee;
+
+        const min = forceBigUInt( minimum );
+
+        return minFee < min ? min : minFee;
     }
 
     getMinimumOutputLovelaces( tx_out: TxOut | CanBeCborString ): bigint
@@ -188,6 +196,21 @@ export class TxBuilder
         if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
         
         return BigInt( this.protocolParamters.utxoCostPerByte ) * size;
+    }
+
+    addMinLovelacesIfMissing( txOut: TxOut ): TxOut
+    {
+        if( txOut.value.lovelaces > 0 ) return txOut.clone();
+
+        return this.minimizeLovelaces({
+            address: txOut.address,
+            value: Value.add(
+                Value.lovelaces( this.getMinimumOutputLovelaces( txOut ) + BigInt( 1_000_000 ) ),
+                txOut.value
+            ),
+            datum: txOut.datum,
+            refScript: txOut.refScript
+        });
     }
 
     minimizeLovelaces( out: ITxOut ): TxOut
@@ -529,7 +552,7 @@ export class TxBuilder
                 )
             }
 
-            minFee = this.calcMinFee( tx );
+            minFee = this.calcMinFee( tx, buildArgs.fee );
 
             fee = minFee +
                 ((totExBudget.mem * memRational.num) / memRational.den) +
@@ -547,7 +570,7 @@ export class TxBuilder
 
             for( let i = 0; i < outs.length; i++ )
             {
-                txOuts[i] = outs[i].clone(); 
+                txOuts[i] = this.addMinLovelacesIfMissing( outs[i] ); 
             }
             txOuts[ txOuts.length - 1 ] = (
                 new TxOut({
@@ -1364,10 +1387,10 @@ export class TxBuilder
             isScriptValid
         });
 
-        const minFee = this.calcMinFee( dummyTx  );
+        let minFee = this.calcMinFee( dummyTx, args.fee );
 
         const txOuts: TxOut[] = new Array( outs.length + 1 ); 
-        outs.forEach( (txO,i) => txOuts[i] = txO.clone() );
+        outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );
         const changeOutput =new TxOut({
             address: change.address,
             value: Value.sub(
@@ -1407,7 +1430,6 @@ export class TxBuilder
             requiredOutputValue,
             outs,
             change,
-            
         };
     }
 
