@@ -84,9 +84,9 @@ export function normalizeITxBuildArgs({ inputs, change, changeAddress, outputs, 
         change: change ? normalizeChangeInfos(change) : undefined,
         changeAddress: normalizeChangeAddress(changeAddress),
         outputs: outputs?.map(normalizeTxBuildArgsOutputs),
-        readonlyRefInputs: readonlyRefInputs?.map(nomalizeUTXOInput),
+        readonlyRefInputs: readonlyRefInputs?.map(nomalizeUTXO),
         requiredSigners: requiredSigners?.map(toPubKeyHash),
-        collaterals: collaterals?.map(nomalizeUTXOInput),
+        collaterals: collaterals?.map(nomalizeUTXO),
         collateralReturn: collateralReturn ? txBuildOutToTxOut(collateralReturn) : undefined,
         mints: mints?.map(normalizeITxBuildMint),
         invalidBefore: invalidBefore === undefined ? undefined : BigInt(invalidBefore),
@@ -163,7 +163,7 @@ function normalizeTxBuildArgsOutputs(output: TxOut): TxOut {
     return txBuildOutToTxOut(output);
 }
 
-function nomalizeUTXOInput(input: IUTxO | CanBeCborString): UTxO {
+function nomalizeUTXO(input: IUTxO | CanBeCborString): UTxO {
     if (canBeCborString(input)) {
         const cborData = forceCborString(input);
         return UTxO.fromCbor(cborData);
