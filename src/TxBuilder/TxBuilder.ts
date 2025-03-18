@@ -683,8 +683,7 @@ export class TxBuilder
             collaterals,
             collateralReturn
         } = args;
-        
-        
+
         if( change ) changeAddress = change.address;
         
         if( !changeAddress )
