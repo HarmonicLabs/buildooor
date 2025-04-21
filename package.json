@@ -1,6 +1,6 @@
 {
     "name": "@harmoniclabs/buildooor",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "Cardano transaction builder in typescript",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -54,7 +54,7 @@
         "@harmoniclabs/cardano-ledger-ts": "^0.3.2",
         "@harmoniclabs/cbor": "^1.6.0",
         "@harmoniclabs/pair": "^1.0.0",
-        "@harmoniclabs/plutus-data": "^1.2.4",
+        "@harmoniclabs/plutus-data": "^1.2.6",
         "@harmoniclabs/plutus-machine": "^2.1.0",
         "@harmoniclabs/uplc": "^1.4.0"
     },

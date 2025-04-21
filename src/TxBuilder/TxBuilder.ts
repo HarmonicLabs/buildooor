@@ -2,12 +2,12 @@ import { fromHex, fromUtf8, isUint8Array, lexCompare, toHex } from "@harmoniclab
 import { keepRelevant } from "./keepRelevant";
 import { GenesisInfos, NormalizedGenesisInfos, defaultMainnetGenesisInfos, defaultPreprodGenesisInfos, isGenesisInfos, isNormalizedGenesisInfos, normalizedGenesisInfos } from "./GenesisInfos";
 import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostModelsV3, defaultV3Costs, CostModelsToLanguageViewCborOpts } from "@harmoniclabs/cardano-costmodels-ts";
-import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata } from "@harmoniclabs/cardano-ledger-ts";
+import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
 import { Machine, ExBudget } from "@harmoniclabs/plutus-machine";
-import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC } from "@harmoniclabs/uplc";
+import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC, parseUPLC, ConstTyTag } from "@harmoniclabs/uplc";
 import { POSIXToSlot, getTxInfos, slotToPOSIX } from "../toOnChain";
 import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput } from "../txBuild";
 import { CanBeUInteger, forceBigUInt, canBeUInteger, unsafeForceUInt } from "../utils/ints";
@@ -21,6 +21,7 @@ import { ChangeInfos } from "../txBuild/ChangeInfos/ChangeInfos";
 import { estimateMaxSignersNeeded, scriptTypeToDataVersion } from "./utils";
 import { cborFromRational } from "../utils/Rational";
 import { stringify } from "../utils/stringify";
+import { getCeritficateScript, getMintingScript, getProposingScript, getSpendingScript, getVotingScript, getWithdrawalScript } from "./utils/getScript";
 
 type ScriptLike = {
     hash: string,
@@ -615,6 +616,206 @@ export class TxBuilder
         this.assertMinOutLovelaces( tx.body.outputs );
 
         return tx;
+    }
+
+    validatePhaseTwo( tx: Tx ): boolean
+    {
+        const txBody = tx.body;
+        const rdmrs = tx.witnesses.redeemers;
+
+        if( !Array.isArray( rdmrs ) || rdmrs.length === 0 ) return true;
+
+        const nRdmrs = rdmrs.length;
+
+        const cek: Machine = (this as any).cek;
+        if( !(cek instanceof Machine) )
+        throw new Error( "protocol params are missing the script evaluation costs" );
+
+        let executionUnitPrices = this.protocolParamters.executionUnitPrices;
+        executionUnitPrices = Array.isArray( executionUnitPrices ) ? executionUnitPrices : [
+            (executionUnitPrices as any).priceMemory,
+            (executionUnitPrices as any).priceSteps,
+        ] 
+        let [ memRational, cpuRational ] = executionUnitPrices;
+        memRational = typeof memRational === "number" ? CborPositiveRational.fromNumber( memRational ) : memRational;
+        cpuRational = typeof cpuRational === "number" ? CborPositiveRational.fromNumber( cpuRational ) : cpuRational;
+
+        const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos );
+
+        let totExBudget = new ExBudget({ mem: 0, cpu: 0 });
+
+        for( let i = 0 ; i < nRdmrs; i++)
+        {
+            const rdmr = rdmrs[i];
+            const { 
+                tag, data: rdmrData, index: rdmr_idx } = rdmr;
+            // "+ 1" because we keep track of lovelaces even if in mint values these are 0
+            const index = rdmr_idx + (tag === TxRedeemerTag.Mint ? 1 : 0);
+
+            const onlyRedeemerArg = ( script: Script<ScriptType> | undefined ) =>
+            {
+                if(!( script instanceof Script ))
+                throw new Error(
+                    "missing script for " + txRedeemerTagToString(tag) + " redeemer " + (index - 1)
+                );
+
+                const expectedVersion = scriptTypeToDataVersion( script.type );
+
+                if( typeof expectedVersion !== "string" )
+                throw new Error("unexpected redeemer for native script");
+
+                const ctxData = getCtx(
+                    script.type,
+                    getSpendingPurposeData( rdmr, tx.body, expectedVersion ),
+                    getScriptInfoData( rdmr, tx.body, expectedVersion ),
+                    rdmrData,
+                    txInfosV1,
+                    txInfosV2,
+                    txInfosV3,
+                );
+
+                const isV2OrLess = (
+                    script.type === ScriptType.PlutusV1 ||
+                    script.type === ScriptType.PlutusV2 ||
+                    script.type === ScriptType.NativeScript
+                );
+
+                const { result, budgetSpent, logs } = cek.eval(
+                    isV2OrLess ? 
+                    new Application(
+                        new Application(
+                            parseUPLC( script.bytes ).body,
+                            UPLCConst.data( rdmrData )
+                        ),
+                        UPLCConst.data(
+                            ctxData
+                        )
+                    ) :
+                    new Application(
+                        parseUPLC( script.bytes ).body,
+                        UPLCConst.data( ctxData )
+                    )
+                );
+
+                const successExec = isV2OrLess ?
+                    !(result instanceof ErrorUPLC) :
+                    ( // v3 requires to return unit
+                        result instanceof UPLCConst
+                        && Array.isArray( result.type )
+                        && result.type.length === 1
+                        && result.type[0] === ConstTyTag.unit
+                        && result.value === undefined
+                    );
+
+                if( !successExec ) return false
+                if(
+                    budgetSpent.cpu > rdmr.execUnits.cpu
+                    || budgetSpent.mem > rdmr.execUnits.mem
+                ) return false;
+
+                totExBudget.add( rdmr.execUnits );
+                return true;
+            }
+
+            if( tag === TxRedeemerTag.Spend )
+            {
+                const entry = getSpendingScript( tx, index );
+                if( !entry ) return false;
+
+                const { script, datum } = entry;
+                
+                // TODO: check if this is correct
+                // I'm assuming native scripts are phase 1
+                if( script.type === ScriptType.NativeScript ) return true; 
+
+                const isV2OrLess = script.type === ScriptType.PlutusV1 || script.type === ScriptType.PlutusV2;
+
+                if( datum === undefined && isV2OrLess )
+                throw new Error(
+                    "missing datum for spend redeemer " + index
+                );
+
+                const expectedVersion = scriptTypeToDataVersion( script.type as ScriptType );
+
+                if( typeof expectedVersion !== "string" )
+                throw new Error("unexpected redeemer for native script");
+
+                const ctxData = getCtx(
+                    script.type as ScriptType,
+                    getSpendingPurposeData( rdmr, tx.body, expectedVersion ),
+                    getScriptInfoData( rdmr, tx.body, expectedVersion, datum ),
+                    rdmrData,
+                    txInfosV1,
+                    txInfosV2,
+                    txInfosV3
+                );
+
+                const { result, budgetSpent, logs } = cek.eval(
+                    isV2OrLess ?
+                    new Application(
+                        new Application(
+                            new Application(
+                                parseUPLC( script.bytes ).body,
+                                UPLCConst.data( datum! )
+                            ),
+                            UPLCConst.data( rdmrData )
+                        ),
+                        UPLCConst.data(
+                            ctxData
+                        )
+                    ) :
+                    new Application(
+                        parseUPLC( script.bytes ).body,
+                        UPLCConst.data( ctxData )
+                    )
+                );
+                const successExec = isV2OrLess ?
+                !(result instanceof ErrorUPLC) :
+                ( // v3 requires to return unit
+                    result instanceof UPLCConst
+                    && Array.isArray( result.type )
+                    && result.type.length === 1
+                    && result.type[0] === ConstTyTag.unit
+                    && result.value === undefined
+                );
+
+                if( !successExec ) return false
+                if(
+                    budgetSpent.cpu > rdmr.execUnits.cpu
+                    || budgetSpent.mem > rdmr.execUnits.mem
+                ) return false;
+
+                totExBudget.add( rdmr.execUnits );
+                continue;
+            }
+            else if( tag === TxRedeemerTag.Mint ) {
+                if( onlyRedeemerArg( getMintingScript( tx, index ) ) ) continue; // this script suceeds
+                else return false;
+            }
+            else if( tag === TxRedeemerTag.Cert ) {
+                if( onlyRedeemerArg( getCeritficateScript( tx, index ) ) ) continue; // this script suceeds
+                else return false;
+            }
+            else if( tag === TxRedeemerTag.Withdraw ) {
+                if( onlyRedeemerArg( getWithdrawalScript( tx, index ) ) ) continue; // this script suceeds
+                else return false;
+            }
+            else if( tag === TxRedeemerTag.Voting ) {
+                if( onlyRedeemerArg( getVotingScript( tx, index ) ) ) continue; // this script suceeds
+                else return false;
+            }
+            else if( tag === TxRedeemerTag.Proposing ) {
+                if( onlyRedeemerArg( getProposingScript( tx, index ) ) ) continue; // this script suceeds
+                else return false;
+            }
+            else throw new Error(
+                "unrecoignized redeemer tag " + tag
+            );
+
+            return false;
+        } // for loop over redeemers
+
+        return true;
     }
 
     assertMinOutLovelaces( txOuts: TxOut[] ): void
