@@ -25,6 +25,8 @@ export function getSpendingScript( tx: Tx, index: number ): { script: Script, da
     if( allScriptInputs.length === 0 ) return undefined;
 
     const scriptInput = allScriptInputs[index];
+    if( !scriptInput ) return undefined;
+    
     const scriptHash = scriptInput.resolved.address.paymentCreds.hash.toBuffer();
 
     const script = getScriptByHash( tx, scriptHash );
