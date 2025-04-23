@@ -1,6 +1,6 @@
 {
     "name": "@harmoniclabs/buildooor",
-    "version": "0.1.6",
+    "version": "0.1.7",
     "description": "Cardano transaction builder in typescript",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

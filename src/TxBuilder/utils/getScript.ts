@@ -1,6 +1,6 @@
 import { Certificate, Credential, CertPoolRetirement, CertRegistrationDeposit, CertStakeDelegation, CertStakeDeRegistration, CertStakeRegistration, CertStakeRegistrationDeleg, CertStakeVoteDeleg, CertStakeVoteRegistrationDeleg, CertUnRegistrationDeposit, CertVoteDeleg, CertVoteRegistrationDeleg, CredentialType, Hash28, Script, Tx, CertAuthCommitteeHot, CertRegistrationDrep, CertUnRegistrationDrep, CertUpdateDrep, ScriptType } from "@harmoniclabs/cardano-ledger-ts";
 import { Data, isData } from "@harmoniclabs/plutus-data";
-import { uint8ArrayEq } from "@harmoniclabs/uint8array-utils";
+import { lexCompare, uint8ArrayEq } from "@harmoniclabs/uint8array-utils";
 
 function getScriptByHash( tx: Tx, hash: Uint8Array | undefined ): Script<ScriptType> | undefined
 {
@@ -21,10 +21,17 @@ function getScriptByHash( tx: Tx, hash: Uint8Array | undefined ): Script<ScriptT
 
 export function getSpendingScript( tx: Tx, index: number ): { script: Script, datum: Data | undefined } | undefined
 {
-    const allScriptInputs = tx.body.inputs.filter( i => i.resolved.address.paymentCreds.type === CredentialType.Script );
-    if( allScriptInputs.length === 0 ) return undefined;
+    if( tx.body.inputs.length <= index ) return undefined;
 
-    const scriptInput = allScriptInputs[index];
+    const sortedIns = tx.body.inputs.slice().sort((a,b) => {
+        const ord = lexCompare( a.utxoRef.id.toBuffer(), b.utxoRef.id.toBuffer() );
+        // if equal tx id order based on tx output index
+        if( ord === 0 ) return a.utxoRef.index - b.utxoRef.index;
+        // else order by tx id
+        return ord;
+        
+    });
+    const scriptInput = sortedIns[index];
     if( !scriptInput ) return undefined;
     
     const scriptHash = scriptInput.resolved.address.paymentCreds.hash.toBuffer();
