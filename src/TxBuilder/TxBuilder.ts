@@ -6,7 +6,7 @@ import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitn
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
-import { Machine, ExBudget } from "@harmoniclabs/plutus-machine";
+import { Machine, ExBudget, CEKConst } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC, parseUPLC, ConstTyTag } from "@harmoniclabs/uplc";
 import { POSIXToSlot, getTxInfos, slotToPOSIX } from "../toOnChain";
 import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput } from "../txBuild";
@@ -700,7 +700,7 @@ export class TxBuilder
                 const successExec = isV2OrLess ?
                     !(result instanceof ErrorUPLC) :
                     ( // v3 requires to return unit
-                        result instanceof UPLCConst
+                        result instanceof CEKConst
                         && Array.isArray( result.type )
                         && result.type.length === 1
                         && result.type[0] === ConstTyTag.unit
@@ -772,7 +772,7 @@ export class TxBuilder
                 const successExec = isV2OrLess ?
                 !(result instanceof ErrorUPLC) :
                 ( // v3 requires to return unit
-                    result instanceof UPLCConst
+                    result instanceof CEKConst
                     && Array.isArray( result.type )
                     && result.type.length === 1
                     && result.type[0] === ConstTyTag.unit
