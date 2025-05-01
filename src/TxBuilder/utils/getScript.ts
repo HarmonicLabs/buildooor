@@ -52,7 +52,9 @@ export function getMintingScript( tx: Tx, index: number ): Script<ScriptType> | 
     const allPolicies = mintedValue.map.map( entry => entry.policy ).filter( p => p instanceof Hash28 ) as Hash28[];
     if( allPolicies.length === 0 ) return undefined;
 
-    const policyHash = allPolicies[index];
+    const policyHash = allPolicies[index-1];
+    if( !policyHash ) return undefined;
+    
     return getScriptByHash( tx, policyHash.toBuffer() );
 }
 
