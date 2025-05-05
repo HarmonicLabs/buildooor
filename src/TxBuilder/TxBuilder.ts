@@ -5,8 +5,8 @@ import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostMod
 import { Tx, Value, ValueUnits, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
-import { Data, dataToCborObj, DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
-import { Machine, ExBudget, CEKConst } from "@harmoniclabs/plutus-machine";
+import { Data, dataToCborObj, DataConstr, dataToCbor, DataI } from "@harmoniclabs/plutus-data";
+import { Machine, ExBudget, CEKConst, CEKValue } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC, parseUPLC, ConstTyTag } from "@harmoniclabs/uplc";
 import { POSIXToSlot, getTxInfos, slotToPOSIX } from "../toOnChain";
 import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput } from "../txBuild";
@@ -618,14 +618,28 @@ export class TxBuilder
         return tx;
     }
 
-    validatePhaseTwo( tx: Tx ): boolean
+    validatePhaseTwoVerbose( tx: Tx ):  {
+        result: CEKValue;
+        budgetSpent: ExBudget;
+        logs: string[];
+        rdmr: TxRedeemer;
+        isV2OrLess: boolean;
+    }[]
     {
         const txBody = tx.body;
         const rdmrs = tx.witnesses.redeemers;
 
-        if( !Array.isArray( rdmrs ) || rdmrs.length === 0 ) return true;
+        if( !Array.isArray( rdmrs ) || rdmrs.length === 0 ) return [];
 
         const nRdmrs = rdmrs.length;
+
+        const evalResults: {
+            result: CEKValue;
+            budgetSpent: ExBudget;
+            logs: string[];
+            rdmr: TxRedeemer;
+            isV2OrLess: boolean;
+        }[] = [];
 
         const cek: Machine = (this as any).cek;
         if( !(cek instanceof Machine) )
@@ -642,22 +656,26 @@ export class TxBuilder
 
         const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos );
 
-        let totExBudget = new ExBudget({ mem: 0, cpu: 0 });
-
         for( let i = 0 ; i < nRdmrs; i++)
         {
             const rdmr = rdmrs[i];
-            const { 
-                tag, data: rdmrData, index: rdmr_idx } = rdmr;
+            const { tag, data: rdmrData, index: rdmr_idx } = rdmr;
             // "+ 1" because we keep track of lovelaces even if in mint values these are 0
             const index = rdmr_idx + (tag === TxRedeemerTag.Mint ? 1 : 0);
 
-            const onlyRedeemerArg = ( script: Script<ScriptType> | undefined ) =>
+            const onlyRedeemerArg = ( script: Script<ScriptType> | undefined ): void =>
             {
                 if(!( script instanceof Script ))
-                throw new Error(
-                    "missing script for " + txRedeemerTagToString(tag) + " redeemer " + (index - 1)
-                );
+                {
+                    evalResults.push({
+                        result: new ErrorUPLC("missig script"),
+                        budgetSpent: new ExBudget({ mem: 0, cpu: 0 }),
+                        logs: [],
+                        rdmr,
+                        isV2OrLess: false
+                    });
+                    return;
+                }
 
                 const expectedVersion = scriptTypeToDataVersion( script.type );
 
@@ -680,53 +698,48 @@ export class TxBuilder
                     script.type === ScriptType.NativeScript
                 );
 
-                const { result, budgetSpent, logs } = cek.eval(
-                    isV2OrLess ? 
-                    new Application(
+                evalResults.push({
+                    ...cek.eval(
+                        isV2OrLess ? 
+                        new Application(
+                            new Application(
+                                parseUPLC( script.bytes ).body,
+                                UPLCConst.data( rdmrData )
+                            ),
+                            UPLCConst.data(
+                                ctxData
+                            )
+                        ) :
                         new Application(
                             parseUPLC( script.bytes ).body,
-                            UPLCConst.data( rdmrData )
-                        ),
-                        UPLCConst.data(
-                            ctxData
+                            UPLCConst.data( ctxData )
                         )
-                    ) :
-                    new Application(
-                        parseUPLC( script.bytes ).body,
-                        UPLCConst.data( ctxData )
-                    )
+                    ),
+                    rdmr,
+                    isV2OrLess,
+                }
                 );
-
-                const successExec = isV2OrLess ?
-                    !(result instanceof ErrorUPLC) :
-                    ( // v3 requires to return unit
-                        result instanceof CEKConst
-                        && Array.isArray( result.type )
-                        && result.type.length === 1
-                        && result.type[0] === ConstTyTag.unit
-                        && result.value === undefined
-                    );
-
-                if( !successExec ) return false
-                if(
-                    budgetSpent.cpu > rdmr.execUnits.cpu
-                    || budgetSpent.mem > rdmr.execUnits.mem
-                ) return false;
-
-                totExBudget.add( rdmr.execUnits );
-                return true;
             }
 
             if( tag === TxRedeemerTag.Spend )
             {
                 const entry = getSpendingScript( tx, index );
-                if( !entry ) return false;
+                if( !entry ) {
+                    evalResults.push({
+                        result: new ErrorUPLC("missig script"),
+                        budgetSpent: new ExBudget({ mem: 0, cpu: 0 }),
+                        logs: [],
+                        rdmr,
+                        isV2OrLess: false
+                    });
+                    continue;
+                };
 
                 const { script, datum } = entry;
                 
                 // TODO: check if this is correct
                 // I'm assuming native scripts are phase 1
-                if( script.type === ScriptType.NativeScript ) return true; 
+                if( script.type === ScriptType.NativeScript ) continue; 
 
                 const isV2OrLess = script.type === ScriptType.PlutusV1 || script.type === ScriptType.PlutusV2;
 
@@ -750,26 +763,48 @@ export class TxBuilder
                     txInfosV3
                 );
 
-                const { result, budgetSpent, logs } = cek.eval(
-                    isV2OrLess ?
-                    new Application(
+                evalResults.push({
+                    ...cek.eval(
+                        isV2OrLess ?
                         new Application(
                             new Application(
-                                parseUPLC( script.bytes ).body,
-                                UPLCConst.data( datum! )
+                                new Application(
+                                    parseUPLC( script.bytes ).body,
+                                    UPLCConst.data( datum! )
+                                ),
+                                UPLCConst.data( rdmrData )
                             ),
-                            UPLCConst.data( rdmrData )
-                        ),
-                        UPLCConst.data(
-                            ctxData
+                            UPLCConst.data(
+                                ctxData
+                            )
+                        ) :
+                        new Application(
+                            parseUPLC( script.bytes ).body,
+                            UPLCConst.data( ctxData )
                         )
-                    ) :
-                    new Application(
-                        parseUPLC( script.bytes ).body,
-                        UPLCConst.data( ctxData )
-                    )
-                );
-                const successExec = isV2OrLess ?
+                    ),
+                    rdmr,
+                    isV2OrLess
+                });
+                continue;
+            }
+            else if( tag === TxRedeemerTag.Mint )       onlyRedeemerArg( getMintingScript( tx, index ) )
+            else if( tag === TxRedeemerTag.Cert )       onlyRedeemerArg( getCeritficateScript( tx, index ) )
+            else if( tag === TxRedeemerTag.Withdraw )   onlyRedeemerArg( getWithdrawalScript( tx, index ) )
+            else if( tag === TxRedeemerTag.Voting )     onlyRedeemerArg( getVotingScript( tx, index ) )
+            else if( tag === TxRedeemerTag.Proposing )  onlyRedeemerArg( getProposingScript( tx, index ) )
+            else continue;
+        } // for loop over redeemers
+
+        return evalResults;
+    }
+
+    validatePhaseTwo( tx: Tx ): boolean
+    {
+        const totExBudget = new ExBudget({ mem: 0, cpu: 0 });
+        const results = this.validatePhaseTwoVerbose( tx );
+        return results.every(({ result, budgetSpent, logs, isV2OrLess, rdmr }) => {
+            const successExec = isV2OrLess ?
                 !(result instanceof ErrorUPLC) :
                 ( // v3 requires to return unit
                     result instanceof CEKConst
@@ -779,43 +814,17 @@ export class TxBuilder
                     && result.value === undefined
                 );
 
-                if( !successExec ) return false
-                if(
-                    budgetSpent.cpu > rdmr.execUnits.cpu
-                    || budgetSpent.mem > rdmr.execUnits.mem
-                ) return false;
+            if( !successExec ) return false
+            if(
+                budgetSpent.cpu > rdmr.execUnits.cpu
+                || budgetSpent.mem > rdmr.execUnits.mem
+            ) return false;
 
-                totExBudget.add( rdmr.execUnits );
-                continue;
-            }
-            else if( tag === TxRedeemerTag.Mint ) {
-                if( onlyRedeemerArg( getMintingScript( tx, index ) ) ) continue; // this script suceeds
-                else return false;
-            }
-            else if( tag === TxRedeemerTag.Cert ) {
-                if( onlyRedeemerArg( getCeritficateScript( tx, index ) ) ) continue; // this script suceeds
-                else return false;
-            }
-            else if( tag === TxRedeemerTag.Withdraw ) {
-                if( onlyRedeemerArg( getWithdrawalScript( tx, index ) ) ) continue; // this script suceeds
-                else return false;
-            }
-            else if( tag === TxRedeemerTag.Voting ) {
-                if( onlyRedeemerArg( getVotingScript( tx, index ) ) ) continue; // this script suceeds
-                else return false;
-            }
-            else if( tag === TxRedeemerTag.Proposing ) {
-                if( onlyRedeemerArg( getProposingScript( tx, index ) ) ) continue; // this script suceeds
-                else return false;
-            }
-            else throw new Error(
-                "unrecoignized redeemer tag " + tag
-            );
-
-            return false;
-        } // for loop over redeemers
-
-        return true;
+            totExBudget.add( rdmr.execUnits );   
+            return true;     
+        })
+        && totExBudget.cpu <= this.protocolParamters.maxTxExecutionUnits.cpu
+        && totExBudget.mem <= this.protocolParamters.maxTxExecutionUnits.mem
     }
 
     assertMinOutLovelaces( txOuts: TxOut[] ): void
