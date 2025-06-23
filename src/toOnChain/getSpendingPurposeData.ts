@@ -1,4 +1,4 @@
-import { Hash28, StakeCredentials, StakeCredentialsType, StakeValidatorHash, Tx, TxBody, TxRedeemer, TxRedeemerTag, VoterKind } from "@harmoniclabs/cardano-ledger-ts";
+import { Hash28, Credential, StakeCredentialsType, StakeValidatorHash, Tx, TxBody, TxRedeemer, TxRedeemerTag, VoterKind } from "@harmoniclabs/cardano-ledger-ts";
 import type { ToDataVersion } from "@harmoniclabs/cardano-ledger-ts/dist/toData/defaultToDataVersion";
 import { Data, DataB, DataConstr, DataI, DataList, isData } from "@harmoniclabs/plutus-data";
 import { lexCompare } from "@harmoniclabs/uint8array-utils";
@@ -84,8 +84,7 @@ export function getScriptInfoData(
             "invalid stake credentials for rewarding redeemer " + rdmr.index.toString()
         );
         purposeArgs = [
-            new StakeCredentials(
-                StakeCredentialsType.Script,
+            Credential.script(
                 new StakeValidatorHash( stakeAddr.credentials )
             )
             .toData( version )
