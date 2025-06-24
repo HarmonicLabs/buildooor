@@ -57,7 +57,7 @@ function normalizeNativeScriptEntry( scr: NativeScript | Script | undefined ): S
     if( isNativeScript( scr ) )
     {
         return new Script(
-            "NativeScript",
+            "NativeScript" as "NativeScript",
             nativeScriptToCbor( scr ).toBuffer()
         );
     }

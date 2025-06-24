@@ -2,12 +2,12 @@ import { defineReadOnlyProperty, isObject } from "@harmoniclabs/obj-utils";
 import type { ITxRunnerProvider } from "../IProvider";
 import type { TxBuilder } from "../TxBuilder";
 import { ITxBuildArgs, ITxBuildOutput, NormalizedITxBuildArgs, normalizeITxBuildArgs } from "../../txBuild";
-import { Address, AddressStr, CertStakeDelegation, Certificate, Hash28, Hash32, ITxOut, ITxOutRef, IUTxO, IValuePolicyEntry, PlutusScriptType, PoolKeyHash, PoolParams, PubKeyHash, Script, ScriptType, StakeAddress, StakeAddressBech32, Credential, StakeValidatorHash, Tx, TxIn, TxMetadata, TxMetadatum, TxOutRefStr, UTxO, Value, forceTxOutRefStr, isITxOut, isIUTxO, CredentialType, CertStakeDeRegistration, CertStakeRegistration, CertPoolRegistration, IPoolParams, CanBeHash28, CertPoolRetirement, StakeCredentials, ITxWithdrawalsEntry, Vote, IAnchor, IVoter, ProtocolParameters, IProposalProcedure, ITxWithdrawals, TxWithdrawals, INewCommitteeEntry, IConstitution, VotingProcedure, VotingProcedures, forceTxOutRef, IVotingProceduresEntry, TxOutRef, VoterKind, GovActionType, isIVotingProceduresEntry, isIProposalProcedure, eqITxOutRef } from "@harmoniclabs/cardano-ledger-ts";
+import { Address, AddressStr, CertStakeDelegation, IProtocolVersion, Certificate, Hash28, Hash32, ITxOut, ITxOutRef, IUTxO, IValuePolicyEntry, PlutusScriptType, PoolKeyHash, PoolParams, PubKeyHash, Script, ScriptType, StakeAddress, StakeAddressBech32, Credential, StakeValidatorHash, Tx, TxIn, TxMetadata, TxMetadatum, TxOutRefStr, UTxO, Value, forceTxOutRefStr, isITxOut, isIUTxO, CredentialType, CertStakeDeRegistration, CertStakeRegistration, CertPoolRegistration, IPoolParams, CanBeHash28, CertPoolRetirement, StakeCredentials, ITxWithdrawalsEntry, Vote, IAnchor, IVoter, ProtocolParameters, IProposalProcedure, ITxWithdrawals, TxWithdrawals, INewCommitteeEntry, IConstitution, VotingProcedure, VotingProcedures, forceTxOutRef, IVotingProceduresEntry, TxOutRef, VoterKind, GovActionType, isIVotingProceduresEntry, isIProposalProcedure, eqITxOutRef } from "@harmoniclabs/cardano-ledger-ts";
 import { CanBeUInteger, canBeUInteger, forceBigUInt } from "../../utils/ints";
 import { CanResolveToUTxO, cloneCanResolveToUTxO, shouldResolveToUTxO } from "../CanResolveToUTxO/CanResolveToUTxO";
 import { jsonToMetadata } from "./jsonToMetadata";
 import { isGenesisInfos } from "../GenesisInfos";
-import { sha2_256 } from "@harmoniclabs/crypto";
+import { sha2_256, sha2_256_sync } from "@harmoniclabs/crypto";
 import { toHex } from "@harmoniclabs/uint8array-utils";
 import { Data, DataI, cloneData, dataToCbor, isData } from "@harmoniclabs/plutus-data";
 import { ByteString } from "@harmoniclabs/bytestring";
@@ -15,7 +15,6 @@ import { CanBeData, canBeData, forceData } from "../../utils/CanBeData";
 import { CanBePoolKeyHash, forcePoolKeyHash } from "./CanBePoolKeyHash";
 import { CanBeStakeCreds, forceStakeCreds } from "./CanBeStakeCreds";
 import { forceAddr } from "./forceAddr";
-import { IProtocolVerision } from "@harmoniclabs/cardano-ledger-ts/dist/ledger/protocol/protocolVersion";
 import { Rational } from "../../utils/Rational";
 import { eqIVoter } from "../../txBuild/ITxBuildVotingProcedure";
 
@@ -104,7 +103,7 @@ const _MAX_DATUMS_CACHE_SIZE = 20;
 function _saveResolvedDatum( datum: Data, hash?: string ): void
 {
     const theData = cloneData( datum );
-    const actualHash = toHex( new Uint8Array( sha2_256( dataToCbor( datum ).toBuffer() ) ) );
+    const actualHash = toHex( new Uint8Array( sha2_256_sync( dataToCbor( datum ).toBuffer() ) ) );
     const actualHashIdx = _datumsHashes.lastIndexOf( actualHash );
     if( actualHashIdx < 0 )
     {
@@ -476,7 +475,7 @@ export class TxBuilderRunner
         script_or_ref?: Script<PlutusScriptType> | CanResolveToUTxO
     ) => TxBuilderRunner
     readonly proposeHardForkInitiation: (
-        nextProtocolVersion: IProtocolVerision,
+        nextProtocolVersion: IProtocolVersion,
         procedureInfos: Omit<IProposalProcedure,"govAction">,
         govActionId?: ITxOutRef | TxOutRefStr,
         redeemer?: CanBeData,
@@ -1793,7 +1792,7 @@ export class TxBuilderRunner
             );
         }
         function _proposeHardForkInitiation(
-            nextProtocolVersion: IProtocolVerision,
+            nextProtocolVersion: IProtocolVersion,
             procedureInfos: Omit<IProposalProcedure,"govAction">,
             govActionId?: ITxOutRef | TxOutRefStr,
             redeemer?: CanBeData,

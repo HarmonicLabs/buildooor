@@ -36,8 +36,8 @@ export function forceStakeCreds( creds: CanBeStakeCreds ): Credential
         throw new Error("pointer stake credentials not supported");
     }
 
-    return new Credential(
-        creds.type === "script" ? CredentialType.Script : CredentialType.KeyHash,
-        creds.hash as Hash28
-    );
+    return new Credential({
+        type: creds.type === "script" ? CredentialType.Script : CredentialType.KeyHash,
+        hash: creds.hash as Hash28
+    });
 }
