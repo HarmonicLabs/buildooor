@@ -218,7 +218,11 @@ export class TxBuilder
     minimizeLovelaces( out: ITxOut ): TxOut
     {
         const o = out instanceof TxOut ? out : txBuildOutToTxOut( out )
-        const minLovelaces = this.getMinimumOutputLovelaces( o );
+        const minLovelaces = (
+            this.getMinimumOutputLovelaces( o ) + 
+            // somehow we always underestimate a tiny bit
+            (BigInt( 32 ) * BigInt(this.protocolParamters.utxoCostPerByte))
+        );
 
         return new TxOut({
             address: o.address,
