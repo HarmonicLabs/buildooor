@@ -1,6 +1,14 @@
-import { IUTxO, Script, UTxO, isIUTxO } from "@harmoniclabs/cardano-ledger-ts";
+import { IUTxO, Script, TxOut, UTxO, isIUTxO } from "@harmoniclabs/cardano-ledger-ts";
 import { Data } from "@harmoniclabs/plutus-data";
 import { CanBeData, forceData } from "../utils/CanBeData";
+
+export interface PlutusTxInterface {
+    inputs: UTxO[]
+    outputs: TxOut[]
+    refInputs: UTxO[]
+}
+
+export type PlutusDataCallback = ( tx: PlutusTxInterface, scriptContextData: Data ) => Data;
 
 export type ScriptWithRedeemer = {
     inline: Script

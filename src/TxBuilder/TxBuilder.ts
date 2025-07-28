@@ -215,8 +215,14 @@ export class TxBuilder
         });
     }
 
-    minimizeLovelaces( out: ITxOut ): TxOut
+    minimizeLovelaces( out: ITxOut, increment: bigint | number = 0 ): TxOut
     {
+        increment = BigInt(
+            typeof increment === "number" ? increment :
+            typeof increment === "bigint" ? increment :
+            0
+        );
+
         const o = out instanceof TxOut ? out : txBuildOutToTxOut( out )
         const minLovelaces = (
             this.getMinimumOutputLovelaces( o ) + 
@@ -232,7 +238,7 @@ export class TxBuilder
                     o.value,
                     Value.lovelaces( o.value.lovelaces )
                 ),
-                Value.lovelaces( minLovelaces )
+                Value.lovelaces( minLovelaces + increment )
             ),
             datum: o.datum,
             refScript: o.refScript
