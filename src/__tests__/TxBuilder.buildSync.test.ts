@@ -7,14 +7,11 @@ const txBuilder = new TxBuilder(
     defaultProtocolParameters
 )
 
-const pkAddr = new Address(
-    "testnet",
-    new Credential(
-        CredentialType.KeyHash,
+const pkAddr = Address.testnet(
+    Credential.keyHash(
         new PubKeyHash( "1b372f69".repeat(7) )
     )
-)
-
+);
 
 test.todo("depends on onchain");
 /*

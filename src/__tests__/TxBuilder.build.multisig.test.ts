@@ -64,7 +64,7 @@ describe("tx with script", () => {
             ],
             changeAddress: Address.testnet(
                 Credential.keyHash("814a30098be2b6f01d7a743a8f7ddad5f33a9829c81a0f04cdbfaef0"),
-                new StakeCredentials("stakeKey", new StakeKeyHash("814a30098be2b6f01d7a743a8f7ddad5f33a9829c81a0f04cdbfaef0"))
+                StakeCredentials.keyHash(new StakeKeyHash("814a30098be2b6f01d7a743a8f7ddad5f33a9829c81a0f04cdbfaef0"))
             )
         });
 

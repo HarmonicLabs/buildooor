@@ -40,10 +40,9 @@ const fakeProvider: ITxRunnerProvider = {
     },
     async resolveDatumHashes( hashes: Hash32[] ) { return [ { hash: "00".repeat(32), datum: new DataConstr( 0, [] )} ] },
     async getChangeAddress() {
-        return new Address(
-            "testnet",
-            Credential.pubKey( "aa".repeat(28) )
-        ).toString() as any
+        return Address.testnet(
+            Credential.keyHash( "aa".repeat(28) )
+        );
     }
 }
 
