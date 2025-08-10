@@ -479,6 +479,7 @@ export class TxBuilder
                             ctxData
                         ] : [ ctxData ],
                         rdmrs,
+                        script.hash.toString(),
                         onScriptResult,
                         onScriptInvalid
                     );
@@ -550,6 +551,7 @@ export class TxBuilder
                             ctxData
                         ] : [ ctxData ],
                         rdmrs,
+                        script.hash.toString(),
                         onScriptResult,
                         onScriptInvalid
                     );
@@ -1823,25 +1825,20 @@ function onEvaluationResult(
     logs: string[],
     callArgs: Data[],
     rdmrs: TxRedeemer[],
-    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[]) => void) | undefined,
+    scritHashStr: string,
+    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string) => void) | undefined,
     onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[]) => void) | undefined
 ): boolean
 {
     let _isScriptValid = true;
 
-    // artificially add some budget to allow for small exec costs errors
-    // TODO: fix `plutus-machine` evaluation
-    // budgetSpent.add({
-    //     cpu: 100_000,
-    //     mem: 10_000
-    // });
-
-    onScriptResult && onScriptResult(
+    if( typeof onScriptResult === "function" ) onScriptResult(
         rdmr.clone(),
         result,
         budgetSpent.clone(),
         logs.slice(),
-        callArgs.map( d => d.clone() )
+        callArgs.map( d => d.clone() ),
+        scritHashStr
     );
 
     if(
@@ -1855,36 +1852,40 @@ function onEvaluationResult(
         if( typeof onScriptInvalid === "function" )
         {
             onScriptInvalid( rdmr.clone(), logs.slice(), callArgs.map( d => d.clone() ) );
-            _isScriptValid = false;
+            // _isScriptValid = false;
         }
         else
         {
+            const callArgsStr = (
+                callArgs
+                .map( (d, i) =>
+                    i.toString() + ": " + dataToCbor( d ).toString()
+                )
+                .join("\n")
+            );
+            const errorMsg = (result as any)?.msg;
+            let addInfosStr = "<error while serializing additional infos>";
+            try {
+                addInfosStr = stringify(
+                    (result as any)?.addInfos,
+                    ( k, v ) => {
+                        if( isUint8Array( v ) )
+                        return toHex( v );
+
+                        if( typeof v === "bigint" )
+                        return v.toString();
+
+                        return v;
+                    }
+                );
+            } catch {}
             throw new Error(
-                `script consumed with ${txRedeemerTagToString(rdmr.tag)} redemer ` +
+                `script '${scritHashStr}' consumed with ${txRedeemerTagToString(rdmr.tag)} redemer ` +
                 `and index '${rdmr.index.toString()}'\n\n` +
-                `called with data arguments:\n${
-                    callArgs
-                    .map( (d, i) =>
-                        i.toString() + ": " + dataToCbor( d ).toString()
-                    )
-                    .join("\n")
-                }\n\n` +
+                `called with data arguments:\n${callArgsStr}\n\n` +
                 `failed with \n`+
-                `error message: ${(result as any).msg}\n`+ 
-                `additional infos: ${
-                    stringify(
-                        (result as any).addInfos,
-                        ( k, v ) => {
-                            if( isUint8Array( v ) )
-                            return toHex( v );
-
-                            if( typeof v === "bigint" )
-                            return v.toString();
-
-                            return v;
-                        }
-                    )
-                }\n` +
+                `error message: ${errorMsg}\n`+ 
+                `additional infos: ${addInfosStr}\n` +
                 `script execution logs: [${logs.toString()}]\n`
             );
         }

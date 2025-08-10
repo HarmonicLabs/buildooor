@@ -3,7 +3,7 @@ import { toHex } from "@harmoniclabs/uint8array-utils";
 
 export function mkReplacer(
     replacer?: (key: string, value: any) => any | null,
-    map: WeakMap<any, string> = new WeakMap()
+    seen: WeakSet<any> = new WeakSet()
 )
 {
     if( typeof replacer !== "function" ) replacer = ( k, v ) => v;
@@ -12,10 +12,10 @@ export function mkReplacer(
         value = replacer!(key, value);
         if( isObject( value ) )
         {
-            if ( map.has(value) ) {
-                return map.get(value);
+            if ( seen.has(value) ) {
+                return undefined
             }
-            map.set(value, key);
+            seen.add(value);
 
             if( typeof value.buffer === "object" && value.buffer instanceof ArrayBuffer )
             {
@@ -41,9 +41,5 @@ export function stringify(
     space: string | number = 0
 ): string 
 {
-    if( replacer )
-    {
-        return JSON.stringify(value, replacer, space);
-    }
-    return JSON.stringify(value, mkReplacer( replacer, new WeakMap() ), space);
+    return JSON.stringify(value, mkReplacer( replacer, new WeakSet() ), space);
 }
