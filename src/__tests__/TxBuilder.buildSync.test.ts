@@ -1,17 +1,47 @@
-import { defaultProtocolParameters, Address, Credential, PubKeyHash, Script, ScriptType, UTxO, Value, getNSignersNeeded, CredentialType } from "@harmoniclabs/cardano-ledger-ts";
+import { defaultProtocolParameters, Address, Credential, PubKeyHash, Script, ScriptType, UTxO, Value, getNSignersNeeded, CredentialType, PublicKey, PrivateKey } from "@harmoniclabs/cardano-ledger-ts";
 import { Cbor, CborBytes } from "@harmoniclabs/cbor";
 import { DataConstr } from "@harmoniclabs/plutus-data";
 import { TxBuilder } from "../TxBuilder"
+import { fromHex } from "@harmoniclabs/uint8array-utils";
 
 const txBuilder = new TxBuilder(
     defaultProtocolParameters
 )
 
+const sk = new PrivateKey( "1b372f69".repeat(8) ); // 4 * 8 = 32 bytes
+const pk = sk.derivePublicKey();
+const someHash = fromHex( "1b372f42".repeat(8) ); // 4 * 8 = 32 bytes
+
 const pkAddr = Address.testnet(
     Credential.keyHash(
-        new PubKeyHash( "1b372f69".repeat(7) )
+        pk.hash
     )
 );
+
+test("smallest possible tx", () => {
+    
+    const tx = txBuilder.buildSync({
+        inputs: [
+            new UTxO({
+                utxoRef: {
+                    id: "ff".repeat(32),
+                    index: 0
+                },
+                resolved: {
+                    address: pkAddr,
+                    value: Value.lovelaces( 1889618 )
+                }
+            })
+        ],
+        changeAddress: pkAddr
+    });
+
+    tx.signWith( sk );
+
+    // console.log( (1889618).toString(16).length/2 );
+    // console.log( tx.toCbor().toBuffer().length );
+    // console.log( JSON.stringify( tx, null, 2 ) );
+});
 
 test.todo("depends on onchain");
 /*
