@@ -162,7 +162,15 @@ export function getTxInfos(
             // datums
             datumsData,
             // id
-            txIdData
+            txIdData,
+            // TODO: votes (TODO)
+            new DataList([]),
+            // TODO: proposals (TODO)
+            new DataList([]),
+            // TODO: currentTreasury
+            new DataConstr( 1, [] ), // nothing,
+            // TODO: treasuryDonation
+            new DataConstr( 1, [] ) // nothing
         ]
     );
 
