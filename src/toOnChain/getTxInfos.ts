@@ -164,7 +164,7 @@ export function getTxInfos(
             // id
             txIdData,
             // TODO: votes (TODO)
-            new DataList([]),
+            new DataMap([]),
             // TODO: proposals (TODO)
             new DataList([]),
             // TODO: currentTreasury
