@@ -343,7 +343,8 @@ export class TxBuilder
         buildArgs: ITxBuildArgs,
         {
             onScriptInvalid,
-            onScriptResult
+            onScriptResult,
+            ...otps
         }: ITxBuildSyncOptions = {}
     ): Tx
     {
@@ -399,12 +400,18 @@ export class TxBuilder
         const proposeScriptsToExec =    scriptsToExec.filter( elem => elem.rdmrTag === TxRedeemerTag.Proposing );
 
         const maxRound = 3;
+        const defaultRounds = 1;
 
         let _isScriptValid: boolean = true;
         let fee = minFee;
         let prevFee: bigint;
+        const nRounds = (
+            typeof otps.nScriptExecitionRounds === "number" ?
+            Math.max( 0, Math.min( otps.nScriptExecitionRounds, maxRound ) )
+            : defaultRounds
+        );
 
-        for( let round = 0; round < maxRound; round++ )
+        for( let round = 0; round < nRounds; round++ )
         {
             prevFee = fee;
 
