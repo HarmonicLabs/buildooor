@@ -1836,7 +1836,7 @@ function onEvaluationResult(
     rdmrs: TxRedeemer[],
     scritHashStr: string,
     tx: Tx,
-    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx) => void) | undefined,
+    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx ) => void) | undefined,
     onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[], tx: Tx ) => void) | undefined
 ): boolean
 {
