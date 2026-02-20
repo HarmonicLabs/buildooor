@@ -487,6 +487,7 @@ export class TxBuilder
                         ] : [ ctxData ],
                         rdmrs,
                         script.hash.toString(),
+                        tx,
                         onScriptResult,
                         onScriptInvalid
                     );
@@ -559,6 +560,7 @@ export class TxBuilder
                         ] : [ ctxData ],
                         rdmrs,
                         script.hash.toString(),
+                        tx,
                         onScriptResult,
                         onScriptInvalid
                     );
@@ -1833,8 +1835,9 @@ function onEvaluationResult(
     callArgs: Data[],
     rdmrs: TxRedeemer[],
     scritHashStr: string,
-    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string) => void) | undefined,
-    onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[]) => void) | undefined
+    tx: Tx,
+    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx) => void) | undefined,
+    onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[], tx: Tx ) => void) | undefined
 ): boolean
 {
     let _isScriptValid = true;
@@ -1845,7 +1848,8 @@ function onEvaluationResult(
         budgetSpent.clone(),
         logs.slice(),
         callArgs.map( d => d.clone() ),
-        scritHashStr
+        scritHashStr,
+        tx
     );
 
     if(
@@ -1858,7 +1862,7 @@ function onEvaluationResult(
     {
         if( typeof onScriptInvalid === "function" )
         {
-            onScriptInvalid( rdmr.clone(), logs.slice(), callArgs.map( d => d.clone() ) );
+            onScriptInvalid( rdmr.clone(), logs.slice(), callArgs.map( d => d.clone() ), tx );
             // _isScriptValid = false;
         }
         else
