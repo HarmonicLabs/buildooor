@@ -3,7 +3,7 @@ import { UPLCEncoder, UPLCProgram, parseUPLC, parseUPLCText } from "@harmoniclab
 import { ITxBuildInput, TxBuilder, defaultMainnetGenesisInfos } from "..";
 import { DataConstr, dataToCbor } from "@harmoniclabs/plutus-data";
 import { getSpendingPurposeData } from "../toOnChain/getSpendingPurposeData";
-import { lexCompare } from "@harmoniclabs/uint8array-utils";
+import { lexCompare, toHex } from "@harmoniclabs/uint8array-utils";
 
 
 describe("tx with script", () => {
@@ -145,12 +145,12 @@ describe("tx with script", () => {
 
         function findConstr0Rdmr( redeemers: TxRedeemer[] | undefined ): TxRedeemer | undefined
         {
-            return redeemers?.find( rdmr => dataToCbor( rdmr.data ).toString() === dataToCbor( new DataConstr(0,[]) ).toString() );
+            return redeemers?.find( rdmr => toHex( dataToCbor( rdmr.data ) ) === toHex( dataToCbor( new DataConstr(0,[]) ) ) );
         }
 
         function findConstr1Rdmr( redeemers: TxRedeemer[] | undefined ): TxRedeemer | undefined
         {
-            return redeemers?.find( rdmr => dataToCbor( rdmr.data ).toString() === dataToCbor( new DataConstr(1,[]) ).toString() );
+            return redeemers?.find( rdmr => toHex( dataToCbor( rdmr.data ) ) === toHex( dataToCbor( new DataConstr(1,[]) ) ) );
         }
 
         const fstIn: ITxBuildInput = {

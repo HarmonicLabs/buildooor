@@ -1858,7 +1858,7 @@ function onEvaluationResult(
             const callArgsStr = (
                 callArgs
                 .map( (d, i) =>
-                    i.toString() + ": " + dataToCbor( d ).toString()
+                    i.toString() + ": " + toHex( dataToCbor( d ) )
                 )
                 .join("\n")
             );

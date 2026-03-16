@@ -39,17 +39,17 @@ describe.skip("getScriptDataHash", () => {
             )
         );
 
-        console.log( tx.witnesses.toCbor().toString() );
+        console.log( tx.witnesses.toCbor() );
         console.log( Cbor.encode(
             new CborArray(
                 tx.witnesses.redeemers?.map( r => r.toCborObj() ) ?? []
             )
-        ).toString() );
+        ) );
         console.log( Cbor.encode(
             new CborArray(
                 tx.witnesses.datums?.map( dataToCborObj ) ?? []
             )
-        ).toString() );
+        )) );
 
 
         console.log( "ScriptDataHash: ", tx.body.scriptDataHash?.toString() );
@@ -61,7 +61,7 @@ describe.skip("getScriptDataHash", () => {
                     PlutusScriptV2: defaultV2Costs
                 },
                 { mustHaveV2: true }
-            ).toBuffer()
+            )
         )?.toString() );
 
     });
@@ -77,7 +77,7 @@ describe.skip("getScriptDataHash", () => {
                     new CborArray(
                         tx.witnesses.datums.map( dataToCborObj ) ?? []
                     )
-                ).toBuffer()
+                )
             )
 
         const txCostModels = costModelsFromCborObj(
@@ -107,7 +107,7 @@ describe.skip("getScriptDataHash", () => {
                         mustHaveV1: false,
                         mustHaveV2: true
                     }
-                ).toBuffer()
+                )
             )?.toString()
         ).toEqual(
             tx.body.scriptDataHash?.toString()
@@ -139,7 +139,7 @@ describe.skip("getScriptDataHash", () => {
                 costModelsToLanguageViewCbor(
                     { PlutusScriptV3: v3Costs },
                     { mustHaveV3: true }
-                ).toBuffer()
+                )
             );
         }
 
@@ -153,7 +153,7 @@ describe.skip("getScriptDataHash", () => {
                     v: new CborArray( blockfrostCosts.map( n => n < 0 ? new CborNegInt( n ) : new CborUInt( n ) ) )
                 }
             ])
-        ).toBuffer();
+        );
 
         const defaultLangView = Cbor.encode(
             new CborMap([
@@ -162,7 +162,7 @@ describe.skip("getScriptDataHash", () => {
                     v: new CborArray( defaultCosts.map( n => n < 0 ? new CborNegInt( n ) : new CborUInt( n ) ) )
                 }
             ])
-        ).toBuffer();
+        );
 
         function getRdmrMapHash( languageViews: Uint8Array | number[] )
         {
@@ -170,7 +170,7 @@ describe.skip("getScriptDataHash", () => {
                 new CborMap(
                     txRdmrs.map( r => r.toCborMapEntry() )
                 )
-            ).toBuffer();
+            );
 
             const data = new Uint8Array( rdmrData.length + languageViews.length );
             data.set( rdmrData, 0 );
@@ -189,7 +189,7 @@ describe.skip("getScriptDataHash", () => {
                 new CborArray(
                     txRdmrs.map( r => r.toCborObj() )
                 )
-            ).toBuffer();
+            );
 
             const data = new Uint8Array( rdmrData.length + languageViews.length );
             data.set( rdmrData, 0 );
@@ -592,7 +592,7 @@ describe.skip("getScriptDataHash", () => {
         //     getScriptDataHash(
         //         rdmrs,
         //         [],
-        //         costModelsToLanguageViewCbor( costModels, { mustHaveV2: true, mustHaveV1: false } ).toBuffer()
+        //         costModelsToLanguageViewCbor( costModels, { mustHaveV2: true, mustHaveV1: false } )
         //     )?.toString()
         // );
     })
