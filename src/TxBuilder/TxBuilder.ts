@@ -6,7 +6,7 @@ import { Tx, Value, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script,
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor, DataI } from "@harmoniclabs/plutus-data";
-import { Machine, ExBudget, CEKConst, CEKValue } from "@harmoniclabs/plutus-machine";
+import { Machine, ExBudget, CEKConst, CEKValue, CEKValueObj, CEKError } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC, parseUPLC, ConstTyTag } from "@harmoniclabs/uplc";
 import { POSIXToSlot, getTxInfos, slotToPOSIX } from "../toOnChain";
 import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput } from "../txBuild";
@@ -126,7 +126,7 @@ export class TxBuilder
         return (
             forceBigUInt( this.protocolParamters.txFeePerByte ) *
             BigInt(
-                (tx instanceof Tx ? tx.toCbor() : tx ).toBuffer().length
+                (tx instanceof Tx ? tx.toCbor() : tx ).length
                 + 2 // for good measure
             ) +
             forceBigUInt( this.protocolParamters.txFeeFixed )
@@ -139,7 +139,7 @@ export class TxBuilder
         .reduce((sum, refIn) => {
             if( refIn.resolved.refScript )
             return sum + BigInt(
-                refIn.resolved.refScript.toCbor().toBuffer().length
+                refIn.resolved.refScript.toCbor().length
                 + 10 // second Cbor wrap
             );
              
@@ -179,22 +179,10 @@ export class TxBuilder
     getMinimumOutputLovelaces( tx_out: TxOut | CanBeCborString ): bigint
     {
         let size = BigInt( 0 );
-        if( tx_out instanceof TxOut ) tx_out = tx_out.toCbor().toBuffer();
+        if( tx_out instanceof TxOut ) tx_out = tx_out.toCbor();
         
         if( typeof tx_out === "string" ) size = BigInt( Math.ceil( tx_out.length / 2 ) );
-        else if(!(tx_out instanceof Uint8Array))
-        {
-            if(
-                isObject( tx_out ) &&
-                hasOwn( tx_out, "toBuffer" ) && 
-                typeof tx_out.toBuffer === "function"
-            )
-            tx_out = tx_out.toBuffer();
-
-            if(!(tx_out instanceof Uint8Array)) tx_out = fromHex( tx_out.toString() );
-        }
-
-        if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
+        else if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
         
         // overestimating the size a bit
         return BigInt( this.protocolParamters.utxoCostPerByte ) * (size + BigInt(10));
@@ -328,7 +316,7 @@ export class TxBuilder
                     costModelsToLanguageViewCbor(
                         this.protocolParamters.costModels,
                         opts
-                    ).toBuffer()
+                    )
                 )
             }),
             witnesses: new TxWitnessSet({
@@ -641,7 +629,7 @@ export class TxBuilder
     }
 
     validatePhaseTwoVerbose( tx: Tx ):  {
-        result: CEKValue;
+        result: CEKValueObj;
         budgetSpent: ExBudget;
         logs: string[];
         rdmr: TxRedeemer;
@@ -656,7 +644,7 @@ export class TxBuilder
         const nRdmrs = rdmrs.length;
 
         const evalResults: {
-            result: CEKValue;
+            result: CEKValueObj;
             budgetSpent: ExBudget;
             logs: string[];
             rdmr: TxRedeemer;
@@ -690,7 +678,7 @@ export class TxBuilder
                 if(!( script instanceof Script ))
                 {
                     evalResults.push({
-                        result: new ErrorUPLC("missig script"),
+                        result: new CEKError("missig script"),
                         budgetSpent: new ExBudget({ mem: 0, cpu: 0 }),
                         logs: [],
                         rdmr,
@@ -748,7 +736,7 @@ export class TxBuilder
                 const entry = getSpendingScript( tx, index );
                 if( !entry ) {
                     evalResults.push({
-                        result: new ErrorUPLC("missig script"),
+                        result: new CEKError("missig script"),
                         budgetSpent: new ExBudget({ mem: 0, cpu: 0 }),
                         logs: [],
                         rdmr,
@@ -859,7 +847,7 @@ export class TxBuilder
             if( out.value.lovelaces < minLovelaces )
             throw new Error(
                 `tx output at index ${i} did not have enough lovelaces to meet the minimum allowed by protocol parameters.\n` +
-                `output size: ${out.toCbor().toBuffer().length} bytes\n` +
+                `output size: ${out.toCbor().length} bytes\n` +
                 `protocol paramters "utxoCostPerByte": ${this.protocolParamters.utxoCostPerByte}\n` +
                 `minimum lovelaces required: ${minLovelaces.toString()}\n` +
                 `output lovelaces          : ${out.value.lovelaces.toString()}\n` +
@@ -1493,10 +1481,10 @@ export class TxBuilder
                         new CborArray(
                             datums.map( dataToCborObj )
                         )
-                        
-                    ).toBuffer()
-                ) 
-            : [];
+
+                    )
+                )
+            : [] as number[];
 
         const languageViews = costModelsToLanguageViewCbor(
             this.protocolParamters.costModels,
@@ -1505,7 +1493,7 @@ export class TxBuilder
                 mustHaveV2: _hasV2Scripts,
                 mustHaveV3: _hasV3Scripts
             }
-        ).toBuffer();
+        );
 
         invalidBefore = invalidBefore === undef ? undef : forceBigUInt( invalidBefore );
 
@@ -1829,14 +1817,14 @@ function onEvaluationResult(
     i: number,
     totExBudget: ExBudget,
     rdmr: TxRedeemer,
-    result: UPLCTerm, 
-    budgetSpent: ExBudget, 
+    result: CEKValueObj,
+    budgetSpent: ExBudget,
     logs: string[],
     callArgs: Data[],
     rdmrs: TxRedeemer[],
     scritHashStr: string,
     tx: Tx,
-    onScriptResult: ((rdmr: TxRedeemer, result: UPLCTerm, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx ) => void) | undefined,
+    onScriptResult: ((rdmr: TxRedeemer, result: CEKValueObj, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx ) => void) | undefined,
     onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[], tx: Tx ) => void) | undefined
 ): boolean
 {
@@ -1953,14 +1941,14 @@ export function getScriptDataHash( witnesses: TxWitnessSet, languageViews: Uint8
         */
         scriptData = new Uint8Array([
             0xa0,
-            ...Cbor.encode( dats ).toBuffer(),
+            ...Cbor.encode( dats ),
             0xa0
         ]);
     }
     else
     {
-        const rdmrsBuff = rdmrs ? Cbor.encode( rdmrs ).toBuffer() : new Uint8Array([ 0x80 ]);
-        const datsBuff = dats ? Cbor.encode( dats ).toBuffer() : new Uint8Array([]);
+        const rdmrsBuff = rdmrs ? Cbor.encode( rdmrs ) : new Uint8Array([ 0x80 ]);
+        const datsBuff = dats ? Cbor.encode( dats ) : new Uint8Array([]);
         scriptData = new Uint8Array( rdmrsBuff.length + datsBuff.length + languageViews.length );
         scriptData.set( rdmrsBuff, 0 );
         scriptData.set( datsBuff, rdmrsBuff.length );

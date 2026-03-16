@@ -103,7 +103,7 @@ const _MAX_DATUMS_CACHE_SIZE = 20;
 function _saveResolvedDatum( datum: Data, hash?: string ): void
 {
     const theData = cloneData( datum );
-    const actualHash = toHex( new Uint8Array( sha2_256_sync( dataToCbor( datum ).toBuffer() ) ) );
+    const actualHash = toHex( new Uint8Array( sha2_256_sync( dataToCbor( datum ) ) ) );
     const actualHashIdx = _datumsHashes.lastIndexOf( actualHash );
     if( actualHashIdx < 0 )
     {

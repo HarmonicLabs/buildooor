@@ -1,6 +1,6 @@
 {
     "name": "@harmoniclabs/buildooor",
-    "version": "0.1.31",
+    "version": "0.2.0",
     "description": "Cardano transaction builder in typescript",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -47,16 +47,16 @@
         "@harmoniclabs/bigint-utils": "^1.0.0",
         "@harmoniclabs/bip32_ed25519": "^0.1.3",
         "@harmoniclabs/bytestring": "^1.0.0",
-        "@harmoniclabs/cardano-costmodels-ts": "^1.3.0",
-        "@harmoniclabs/cardano-ledger-ts": "^0.4.8",
-        "@harmoniclabs/cbor": "^1.6.6",
+        "@harmoniclabs/cardano-costmodels-ts": "^1.4.0",
+        "@harmoniclabs/cardano-ledger-ts": "^0.5.0",
+        "@harmoniclabs/cbor": "^2.0.1",
         "@harmoniclabs/crypto": "^0.3.0",
         "@harmoniclabs/obj-utils": "^1.0.0",
         "@harmoniclabs/pair": "^1.0.0",
-        "@harmoniclabs/plutus-data": "^1.2.6",
-        "@harmoniclabs/plutus-machine": "^2.1.3",
+        "@harmoniclabs/plutus-data": "^2.0.1",
+        "@harmoniclabs/plutus-machine": "^3.0.0",
         "@harmoniclabs/uint8array-utils": "^1.0.4",
-        "@harmoniclabs/uplc": "^1.4.1"
+        "@harmoniclabs/uplc": "^2.0.5"
     },
     "devDependencies": {
         "@babel/preset-env": "^7.18.6",
@@ -64,7 +64,7 @@
         "@types/jest": "^30.0.0",
         "@types/node": "^18.14.6",
         "jest": "^30.2.0",
-        "jest-environment-jsdom": "^29.4.3",
+        "jest-environment-jsdom": "^30.3.0",
         "tsc-alias": "^1.7.1",
         "typescript": "^4.6.3"
     },

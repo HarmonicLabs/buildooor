@@ -100,7 +100,7 @@ describe("tx with script", () => {
                 [1,0,0],
                 parseUPLCText("(lam a (lam b (lam c (con unit))))")
             )
-        ).toBuffer().buffer
+        )
     );
 
     const scriptv2Addr = Address.mainnet( Credential.script( scriptv2.hash ) );

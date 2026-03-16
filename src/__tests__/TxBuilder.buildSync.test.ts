@@ -39,7 +39,7 @@ test("smallest possible tx", () => {
     tx.signWith( sk );
 
     // console.log( (1889618).toString(16).length/2 );
-    // console.log( tx.toCbor().toBuffer().length );
+    // console.log( tx.toCbor().length );
     // console.log( JSON.stringify( tx, null, 2 ) );
 });
 

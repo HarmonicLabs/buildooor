@@ -22,7 +22,7 @@ describe("tx with script", () => {
                     keyHash: '6239b88172d8f3c7a7bb39c4f73891b5bf02da6737abf5fd26288e3b'
                 }
             ]
-        }).toBuffer()
+        })
     );
 
     const scriptAddr = Address.mainnet( Credential.script( script.hash ) );

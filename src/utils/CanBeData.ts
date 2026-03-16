@@ -11,10 +11,11 @@ export function cloneCanBeData( stuff: CanBeData ): CanBeData
 {
     if( typeof stuff === "string" ) return stuff;
 
+    if( stuff instanceof Uint8Array ) return Uint8Array.prototype.slice.call( stuff );
+
     if(
-        stuff instanceof CborString || 
-        isCborObj( stuff ) || 
-        isData( stuff ) 
+        isCborObj( stuff ) ||
+        isData( stuff )
     ) return stuff.clone() as any;
 
     const result = Machine.evalSimple( stuff.toUPLC() );
@@ -42,13 +43,13 @@ export function canBeData( something: any ): something is CanBeData
     ) return true;
     if( typeof something !== "object" ) return false;
     return (
-        isData( something ) || 
+        isData( something ) ||
         (
             typeof something === "object" &&
             hasOwn( something, "toUPLC" ) &&
             typeof something.toUPLC === "function"
         ) ||
-        something instanceof CborString ||
+        something instanceof Uint8Array ||
         isCborObj( something )
     );
 }
@@ -57,7 +58,7 @@ export function forceData( data: CanBeData ): Data
 {
     if( typeof data === "string" )
     data = dataFromCbor( data );
-    
+
     if( isData( data ) )
     {
         return data;
@@ -89,7 +90,7 @@ export function forceData( data: CanBeData ): Data
         return _data;
     }
 
-    if( data instanceof CborString )
+    if( data instanceof Uint8Array )
     {
         return dataFromCbor( data )
     }

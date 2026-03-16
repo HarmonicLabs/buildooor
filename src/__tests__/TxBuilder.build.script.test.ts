@@ -12,7 +12,7 @@ describe("tx with script", () => {
 
     const program = new UPLCProgram([1,0,0], uplc);
 
-    const bytes = UPLCEncoder.compile( program ).toBuffer().buffer;
+    const bytes = UPLCEncoder.compile( program );
 
     const script = new Script(
         "PlutusScriptV2",
