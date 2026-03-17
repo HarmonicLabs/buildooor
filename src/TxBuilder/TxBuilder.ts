@@ -620,7 +620,8 @@ export class TxBuilder
             });
 
             _isScriptValid = true;
-            totExBudget = new ExBudget({ mem: 0, cpu: 0 })
+            totExBudget = new ExBudget({ mem: 0, cpu: 0 });
+            cek.resetBudget();
         }
 
         this.assertMinOutLovelaces( tx.body.outputs );
