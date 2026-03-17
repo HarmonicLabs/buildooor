@@ -401,6 +401,8 @@ export class TxBuilder
 
         for( let round = 0; round < nRounds; round++ )
         {
+            cek.resetBudget();
+            cek.resetLogs();
             prevFee = fee;
 
             const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos );

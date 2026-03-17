@@ -163,14 +163,34 @@ export function getTxInfos(
             datumsData,
             // id
             txIdData,
-            // TODO: votes (TODO)
-            new DataMap([]),
-            // TODO: proposals (TODO)
-            new DataList([]),
-            // TODO: currentTreasury
-            new DataConstr( 1, [] ), // nothing,
-            // TODO: treasuryDonation
-            new DataConstr( 1, [] ) // nothing
+            // votes
+            new DataMap(
+                tx.votingProcedures?.procedures?.map(({ voter, votes }) =>
+                    new DataPair(
+                        voter.toData("v3"),
+                        new DataMap(
+                            votes.map(({ govActionId, vote }) =>
+                                new DataPair(
+                                    govActionId.toData("v3"),
+                                    new DataConstr( vote.vote, [] )
+                                )
+                            )
+                        )
+                    )
+                ) ?? []
+            ),
+            // proposals
+            new DataList(
+                tx.proposalProcedures?.map( prop => prop.toData("v3") ) ?? []
+            ),
+            // currentTreasury
+            tx.currentTreasuryValue !== undefined
+                ? new DataConstr( 0, [ new DataI( tx.currentTreasuryValue ) ] )
+                : new DataConstr( 1, [] ),
+            // treasuryDonation
+            tx.donation !== undefined
+                ? new DataConstr( 0, [ new DataI( tx.donation ) ] )
+                : new DataConstr( 1, [] )
         ]
     );
 
