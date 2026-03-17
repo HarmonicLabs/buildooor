@@ -49,6 +49,9 @@ export class TxBuilder
     {
         return new TxBuilderRunner( this, provider );
     }
+
+    private cek: Machine;
+    private pp: ValidatedTxBuilderProtocolParams;
     
     constructor(
         protocolParamters?: Readonly<TxBuilderProtocolParams>,
@@ -81,6 +84,7 @@ export class TxBuilder
         );
 
         const pp = completeTxBuilderProtocolParams( protocolParamters );
+        this.pp = pp;
         
         defineReadOnlyProperty(
             this,
@@ -94,18 +98,13 @@ export class TxBuilder
             isCostModelsV1( costmdls.PlutusScriptV1 ) ? costmdls.PlutusScriptV1 :
             defaultV3Costs;
 
-        definePropertyIfNotPresent(
-            this,
-            "cek",
-            {
-                // define as getter so that it can be reused without messing around things
-                get: () => new Machine({ ...costs }),
-                // set does nothing ( aka. readonly )
-                set: () => {},
-                enumerable: false,
-                configurable: false
-            }
-        );
+        this.cek = new Machine({ ...costs }, pp.maxTxExecutionUnits );
+    }
+
+    resetMachine(): void
+    {
+        this.cek.resetBudget( this.pp.maxTxExecutionUnits );
+        this.cek.resetLogs();
     }
 
     keepRelevant(
@@ -362,7 +361,8 @@ export class TxBuilder
 
         let txOuts: TxOut[] = new Array( outs.length + 1 );
 
-        const cek: Machine = (this as any).cek;
+        this.resetMachine();
+        const cek: Machine = this.cek;
         
         if( !(cek instanceof Machine) )
         throw new Error(
