@@ -1,6 +1,6 @@
 {
     "name": "@harmoniclabs/buildooor",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "Cardano transaction builder in typescript",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -54,9 +54,9 @@
         "@harmoniclabs/obj-utils": "^1.0.0",
         "@harmoniclabs/pair": "^1.0.0",
         "@harmoniclabs/plutus-data": "^2.0.1",
-        "@harmoniclabs/plutus-machine": "^3.0.0",
+        "@harmoniclabs/plutus-machine": "^3.0.1",
         "@harmoniclabs/uint8array-utils": "^1.0.4",
-        "@harmoniclabs/uplc": "^2.0.5"
+        "@harmoniclabs/uplc": "^2.0.6"
     },
     "devDependencies": {
         "@babel/preset-env": "^7.18.6",
