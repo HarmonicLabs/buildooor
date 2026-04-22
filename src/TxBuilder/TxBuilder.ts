@@ -184,7 +184,7 @@ export class TxBuilder
         else if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
         
         // overestimating the size a bit
-        return BigInt( this.protocolParamters.utxoCostPerByte ) * (size + BigInt(10));
+        return BigInt( this.protocolParamters.utxoCostPerByte ) * (size + BigInt(160));
     }
 
     addMinLovelacesIfMissing( txOut: TxOut ): TxOut
