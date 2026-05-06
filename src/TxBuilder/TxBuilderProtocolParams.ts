@@ -19,6 +19,12 @@ export interface ValidatedTxBuilderProtocolParams {
     collateralPercentage: bigint,
     minfeeRefScriptCostPerByte: CborPositiveRational
 
+    // optional cert-balancing deposits; required only when building
+    // txs containing the corresponding cert types. _initBuild throws
+    // a clear error if needed and missing.
+    stakeAddressDeposit?: bigint,
+    drepDeposit?: bigint,
+
     // plutus costs are optional because
     // not all tx have plutus scripts
     // if a tx has plutus scripts and
@@ -44,6 +50,9 @@ export interface TxBuilderProtocolParams {
     collateralPercentage: CanBeUInteger,
     minfeeRefScriptCostPerByte: Rational
 
+    stakeAddressDeposit?: CanBeUInteger,
+    drepDeposit?: CanBeUInteger,
+
     // plutus costs are optional because
     // not all tx have plutus scripts
     // if a tx has plutus scripts and
@@ -67,6 +76,12 @@ export const defaultTxBuilderProtocolParameters = Object.freeze({
     maxCollateralInputs: BigInt( defaultProtocolParameters.maxCollateralInputs ?? 0 ),
     collateralPercentage: BigInt( defaultProtocolParameters.collateralPercentage ?? 0 ),
     minfeeRefScriptCostPerByte: cborFromRational( defaultProtocolParameters.minfeeRefScriptCostPerByte ?? 0 ),
+    // Deposits are deliberately left undefined when no params are supplied.
+    // Cert-bearing tx flows throw a clear error pointing at the missing
+    // field, instead of silently using a mainnet default that would be
+    // wrong on testnets / custom devnets.
+    stakeAddressDeposit: undefined,
+    drepDeposit: undefined,
     executionUnitPrices: forceExecUnitPricesArray( defaultProtocolParameters.executionUnitPrices ?? [ 0, 0 ]),
     costModels: defaultProtocolParameters.costModels ?? {
         PlutusScriptV1: defaultV1Costs,
@@ -209,6 +224,16 @@ export function completeTxBuilderProtocolParams( partial: TxBuilderProtocolParam
         isCostModels( partial.costModels ) ?
             partial.costModels :
             defaultTxBuilderProtocolParameters.costModels
+    );
+    result.stakeAddressDeposit = (
+        canBeUInteger( partial.stakeAddressDeposit ) ?
+            BigInt( partial.stakeAddressDeposit ) :
+            undefined
+    );
+    result.drepDeposit = (
+        canBeUInteger( partial.drepDeposit ) ?
+            BigInt( partial.drepDeposit ) :
+            undefined
     );
 
     return result;

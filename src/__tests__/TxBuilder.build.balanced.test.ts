@@ -35,7 +35,7 @@ describe("fee", () => {
             },
             resolved: {
                 address: addr0 ,
-                value: Value.lovelaces( 10_000_000 )
+                value: Value.lovelaces( 25_000_000 )
             }
         });
     

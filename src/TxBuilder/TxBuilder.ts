@@ -2,14 +2,14 @@ import { fromHex, fromUtf8, isUint8Array, lexCompare, toHex } from "@harmoniclab
 import { keepRelevant } from "./keepRelevant";
 import { GenesisInfos, NormalizedGenesisInfos, defaultMainnetGenesisInfos, defaultPreprodGenesisInfos, isGenesisInfos, isNormalizedGenesisInfos, normalizedGenesisInfos } from "./GenesisInfos";
 import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostModelsV3, defaultV3Costs, CostModelsToLanguageViewCborOpts } from "@harmoniclabs/cardano-costmodels-ts";
-import { Tx, Value, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType, ValueUnits } from "@harmoniclabs/cardano-ledger-ts";
+import { Tx, Value, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType, ValueUnits, CertStakeRegistration, CertStakeDeRegistration, ConwayCertRegistrationDeposit, ConwayCertUnRegistrationDeposit, ConwayCertStakeRegistrationDeleg, ConwayCertVoteRegistrationDeleg, ConwayCertStakeVoteRegistrationDeleg, ConwayCertRegistrationDrep, ConwayCertUnRegistrationDrep } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor, DataI } from "@harmoniclabs/plutus-data";
 import { Machine, ExBudget, CEKConst, CEKValue, CEKValueObj, CEKError } from "@harmoniclabs/plutus-machine";
 import { UPLCTerm, UPLCDecoder, Application, UPLCConst, ErrorUPLC, parseUPLC, ConstTyTag } from "@harmoniclabs/uplc";
 import { POSIXToSlot, getTxInfos, slotToPOSIX } from "../toOnChain";
-import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput } from "../txBuild";
+import { ITxBuildArgs, ITxBuildOptions, ITxBuildInput, ITxBuildSyncOptions, txBuildOutToTxOut, normalizeITxBuildArgs, NormalizedITxBuildInput, NormalizedITxBuildArgs } from "../txBuild";
 import { CanBeUInteger, forceBigUInt, canBeUInteger, unsafeForceUInt } from "../utils/ints";
 import { freezeAll, defineReadOnlyProperty, definePropertyIfNotPresent, hasOwn, isObject } from "@harmoniclabs/obj-utils";
 import { TxBuilderRunner } from "./TxBuilderRunner/TxBuilderRunner";
@@ -179,11 +179,10 @@ export class TxBuilder
     {
         let size = BigInt( 0 );
         if( tx_out instanceof TxOut ) tx_out = tx_out.toCbor();
-        
+
         if( typeof tx_out === "string" ) size = BigInt( Math.ceil( tx_out.length / 2 ) );
         else if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
-        
-        // overestimating the size a bit
+
         return BigInt( this.protocolParamters.utxoCostPerByte ) * (size + BigInt(160));
     }
 
@@ -211,11 +210,22 @@ export class TxBuilder
         );
 
         const o = out instanceof TxOut ? out : txBuildOutToTxOut( out )
-        const minLovelaces = (
-            this.getMinimumOutputLovelaces( o ) + 
-            // somehow we always underestimate a tiny bit
-            (BigInt( 32 ) * BigInt(this.protocolParamters.utxoCostPerByte))
-        );
+        // Measure size with the coin field forced to its 9-byte CBOR varint
+        // worst case (`2^64 - 1`). This makes the result a true upper bound
+        // on the size of the final TxOut once we write `minLovelaces` back
+        // into the coin field, eliminating the coin-varint chicken-and-egg.
+        // It also covers the 1-byte transition from bare-multiasset Value
+        // (when input had `lovelaces == 0`) to `[coin, multiasset]` form.
+        const measureOut = new TxOut({
+            address: o.address,
+            value: Value.add(
+                Value.sub( o.value, Value.lovelaces( o.value.lovelaces ) ),
+                Value.lovelaces( BigInt( "0xffffffffffffffff" ) )
+            ),
+            datum: o.datum,
+            refScript: o.refScript
+        });
+        const minLovelaces = this.getMinimumOutputLovelaces( measureOut );
 
         return new TxOut({
             address: o.address,
@@ -232,8 +242,78 @@ export class TxBuilder
         });
     }
 
+    private balanceCertDeposits(
+        certificates: NormalizedITxBuildArgs["certificates"],
+        totInputValue: Value,
+        requiredOutputValue: Value
+    ): { balancedTotInputValue: Value, balancedRequiredOutputValue: Value }
+    {
+        let totRegistrationDeposit = BigInt( 0 );
+        let totRefundedDeposit = BigInt( 0 );
+
+        const ensureDeposit = ( name: "stakeAddressDeposit" | "drepDeposit" ): bigint => {
+            const v = this.pp[ name ];
+            if( v === undefined ) throw new Error(
+                `missing protocolParamters.${name}; required to balance cert-bearing tx`
+            );
+            return BigInt( v );
+        };
+
+        for( const { cert } of (certificates ?? []) )
+        {
+            // Conway-era certs carry the deposit/refund on `deposit`
+            // (the *Deposit certs) or `coin` (the *Deleg / *Drep certs)
+            // — same semantic, different field name in cardano-ledger-ts.
+            if( cert instanceof ConwayCertRegistrationDeposit ) {
+                totRegistrationDeposit += BigInt( cert.deposit );
+                continue;
+            }
+            if( cert instanceof ConwayCertUnRegistrationDeposit ) {
+                // `deposit` field, but it's the refund amount on un-registration.
+                totRefundedDeposit += BigInt( cert.deposit );
+                continue;
+            }
+            if(
+                cert instanceof ConwayCertStakeRegistrationDeleg
+                || cert instanceof ConwayCertVoteRegistrationDeleg
+                || cert instanceof ConwayCertStakeVoteRegistrationDeleg
+                || cert instanceof ConwayCertRegistrationDrep
+            ) {
+                totRegistrationDeposit += BigInt( cert.coin );
+                continue;
+            }
+            if( cert instanceof ConwayCertUnRegistrationDrep ) {
+                // `coin` field, but it's the refund amount on DRep un-registration.
+                totRefundedDeposit += BigInt( cert.coin );
+                continue;
+            }
+            // Pre-Conway types use protocol-param defaults.
+            if( cert instanceof CertStakeRegistration ) {
+                totRegistrationDeposit += ensureDeposit( "stakeAddressDeposit" );
+                continue;
+            }
+            if( cert instanceof CertStakeDeRegistration ) {
+                totRefundedDeposit += ensureDeposit( "stakeAddressDeposit" );
+                continue;
+            }
+            // CertPoolRegistration / CertPoolRetirement: out of scope — pool deposit
+            // is paid only on first registration, and _initBuild can't disambiguate
+            // first-vs-update without on-chain state. See CONWAY_CERT_DEPOSITS_TXBUILDER_FIX.md.
+            // ConwayMoveInstantRewardsCert: no deposit, skip.
+        }
+
+        return {
+            balancedTotInputValue: totRefundedDeposit > BigInt( 0 )
+                ? Value.add( totInputValue, Value.lovelaces( totRefundedDeposit ) )
+                : totInputValue,
+            balancedRequiredOutputValue: totRegistrationDeposit > BigInt( 0 )
+                ? Value.add( requiredOutputValue, Value.lovelaces( totRegistrationDeposit ) )
+                : requiredOutputValue
+        };
+    }
+
     /**
-     * 
+     *
      * @param slotN number of the slot
      * @returns POSIX time in **milliseconds**
      */
@@ -1611,14 +1691,22 @@ export class TxBuilder
 
         let minFee = this.calcMinFee( dummyTx, args.fee );
 
-        const txOuts: TxOut[] = new Array( outs.length + 1 ); 
+        // Balance cert deposits / refunds into the change calculation.
+        // The ledger applies registration deposits on the produced side
+        // and de-registration refunds on the consumed side of value
+        // conservation; auto-change must mirror that or phase-1 rejects
+        // with valueNotConservedUTxO.
+        const { balancedTotInputValue, balancedRequiredOutputValue } =
+            this.balanceCertDeposits( certificates, totInputValue, requiredOutputValue );
+
+        const txOuts: TxOut[] = new Array( outs.length + 1 );
         outs.forEach( (txO,i) => txOuts[i] = this.addMinLovelacesIfMissing( txO ) );
         const changeOutput =new TxOut({
             address: change.address,
             value: Value.sub(
-                totInputValue,
+                balancedTotInputValue,
                 Value.add(
-                    requiredOutputValue,
+                    balancedRequiredOutputValue,
                     Value.lovelaces( minFee )
                 )
             ),
@@ -1648,8 +1736,8 @@ export class TxBuilder
             minFee,
             datumsScriptData,
             languageViews,
-            totInputValue,
-            requiredOutputValue,
+            totInputValue: balancedTotInputValue,
+            requiredOutputValue: balancedRequiredOutputValue,
             outs,
             change,
         };
