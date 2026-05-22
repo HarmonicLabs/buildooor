@@ -2,7 +2,7 @@ import { fromHex, fromUtf8, isUint8Array, lexCompare, toHex } from "@harmoniclab
 import { keepRelevant } from "./keepRelevant";
 import { GenesisInfos, NormalizedGenesisInfos, defaultMainnetGenesisInfos, defaultPreprodGenesisInfos, isGenesisInfos, isNormalizedGenesisInfos, normalizedGenesisInfos } from "./GenesisInfos";
 import { isCostModelsV2, isCostModelsV1, costModelsToLanguageViewCbor, isCostModelsV3, defaultV3Costs, CostModelsToLanguageViewCborOpts } from "@harmoniclabs/cardano-costmodels-ts";
-import { Tx, Value, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType, ValueUnits, CertStakeRegistration, CertStakeDeRegistration, ConwayCertRegistrationDeposit, ConwayCertUnRegistrationDeposit, ConwayCertStakeRegistrationDeleg, ConwayCertVoteRegistrationDeleg, ConwayCertStakeVoteRegistrationDeleg, ConwayCertRegistrationDrep, ConwayCertUnRegistrationDrep } from "@harmoniclabs/cardano-ledger-ts";
+import { Tx, Value, TxOut, TxRedeemerTag, ScriptType, UTxO, VKeyWitness, Script, BootstrapWitness, TxRedeemer, Hash32, TxIn, Hash28, AuxiliaryData, TxWitnessSet, getNSignersNeeded, txRedeemerTagToString, ScriptDataHash, TxBody, CredentialType, canBeHash32, VotingProcedures, ProposalProcedure, InstantRewardsSource, LitteralScriptType, defaultProtocolParameters, ITxOut, TxMetadatumList, TxMetadatumMap, TxMetadatumText, TxMetadata, PlutusScriptType, ValueUnits, CertificateType } from "@harmoniclabs/cardano-ledger-ts";
 import { CborString, Cbor, CborArray, CanBeCborString, CborPositiveRational, CborMap, CborUInt } from "@harmoniclabs/cbor";
 import { blake2b_256 } from "@harmoniclabs/crypto";
 import { Data, dataToCborObj, DataConstr, dataToCbor, DataI } from "@harmoniclabs/plutus-data";
@@ -264,42 +264,34 @@ export class TxBuilder
             // Conway-era certs carry the deposit/refund on `deposit`
             // (the *Deposit certs) or `coin` (the *Deleg / *Drep certs)
             // — same semantic, different field name in cardano-ledger-ts.
-            if( cert instanceof ConwayCertRegistrationDeposit ) {
-                totRegistrationDeposit += BigInt( cert.deposit );
-                continue;
-            }
-            if( cert instanceof ConwayCertUnRegistrationDeposit ) {
-                // `deposit` field, but it's the refund amount on un-registration.
-                totRefundedDeposit += BigInt( cert.deposit );
-                continue;
-            }
-            if(
-                cert instanceof ConwayCertStakeRegistrationDeleg
-                || cert instanceof ConwayCertVoteRegistrationDeleg
-                || cert instanceof ConwayCertStakeVoteRegistrationDeleg
-                || cert instanceof ConwayCertRegistrationDrep
-            ) {
-                totRegistrationDeposit += BigInt( cert.coin );
-                continue;
-            }
-            if( cert instanceof ConwayCertUnRegistrationDrep ) {
-                // `coin` field, but it's the refund amount on DRep un-registration.
-                totRefundedDeposit += BigInt( cert.coin );
-                continue;
-            }
-            // Pre-Conway types use protocol-param defaults.
-            if( cert instanceof CertStakeRegistration ) {
-                totRegistrationDeposit += ensureDeposit( "stakeAddressDeposit" );
-                continue;
-            }
-            if( cert instanceof CertStakeDeRegistration ) {
-                totRefundedDeposit += ensureDeposit( "stakeAddressDeposit" );
-                continue;
-            }
             // CertPoolRegistration / CertPoolRetirement: out of scope — pool deposit
             // is paid only on first registration, and _initBuild can't disambiguate
             // first-vs-update without on-chain state. See CONWAY_CERT_DEPOSITS_TXBUILDER_FIX.md.
             // ConwayMoveInstantRewardsCert: no deposit, skip.
+            switch( cert.certType )
+            {
+                case CertificateType.RegistrationDeposit:
+                    totRegistrationDeposit += BigInt( cert.deposit );
+                    break;
+                case CertificateType.UnRegistrationDeposit:
+                    totRefundedDeposit += BigInt( cert.deposit );
+                    break;
+                case CertificateType.StakeRegistrationDeleg:
+                case CertificateType.VoteRegistrationDeleg:
+                case CertificateType.StakeVoteRegistrationDeleg:
+                case CertificateType.RegistrationDrep:
+                    totRegistrationDeposit += BigInt( cert.coin );
+                    break;
+                case CertificateType.UnRegistrationDrep:
+                    totRefundedDeposit += BigInt( cert.coin );
+                    break;
+                case CertificateType.StakeRegistration:
+                    totRegistrationDeposit += ensureDeposit( "stakeAddressDeposit" );
+                    break;
+                case CertificateType.StakeDeRegistration:
+                    totRefundedDeposit += ensureDeposit( "stakeAddressDeposit" );
+                    break;
+            }
         }
 
         return {

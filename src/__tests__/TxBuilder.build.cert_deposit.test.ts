@@ -1,9 +1,8 @@
 import {
     Address, Credential, Hash28, UTxO, Value,
     defaultProtocolParameters,
-    ConwayCertRegistrationDeposit,
-    ConwayCertUnRegistrationDeposit,
-    CertStakeRegistration
+    certificateFromCertificateLike,
+    CertificateType
 } from "@harmoniclabs/cardano-ledger-ts";
 import { TxBuilder, defaultMainnetGenesisInfos } from "..";
 
@@ -38,7 +37,11 @@ describe("cert deposit balancing", () => {
         const tx = txBuilder.buildSync({
             inputs: [{ utxo: utxoFor( inputLovelaces ) }],
             certificates: [{
-                cert: new ConwayCertRegistrationDeposit({ stakeCredential, deposit })
+                cert: certificateFromCertificateLike({
+                    certType: CertificateType.RegistrationDeposit,
+                    stakeCredential,
+                    deposit
+                })
             }],
             changeAddress: addr0,
             requiredSigners: [ ownerPkh ]
@@ -64,7 +67,8 @@ describe("cert deposit balancing", () => {
         const tx = txBuilder.buildSync({
             inputs: [{ utxo: utxoFor( inputLovelaces ) }],
             certificates: [{
-                cert: new ConwayCertUnRegistrationDeposit({
+                cert: certificateFromCertificateLike({
+                    certType: CertificateType.UnRegistrationDeposit,
                     stakeCredential,
                     deposit: refund
                 })
@@ -93,7 +97,10 @@ describe("cert deposit balancing", () => {
         expect( () => txBuilder.buildSync({
             inputs: [{ utxo: utxoFor( 10_000_000 ) }],
             certificates: [{
-                cert: new CertStakeRegistration({ stakeCredential })
+                cert: certificateFromCertificateLike({
+                    certType: CertificateType.StakeRegistration,
+                    stakeCredential
+                })
             }],
             changeAddress: addr0,
             requiredSigners: [ ownerPkh ]
