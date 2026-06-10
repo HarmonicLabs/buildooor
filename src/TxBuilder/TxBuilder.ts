@@ -370,31 +370,32 @@ export class TxBuilder
      * 2) `tx.witnesses.redeemers`
      * 3) `tx.witnesses.vkeyWitnesses` (empty)
      */
-    overrideTxRedeemers( 
-        tx: Tx, 
+    overrideTxRedeemers(
+        tx: Tx,
         newRedeemers: TxRedeemer[],
         opts: CostModelsToLanguageViewCborOpts = { mustHaveV3: true }
     ): Tx
     {
-        // datums passed by hash
-        const datums = tx.witnesses.datums ?? [];
+        // the script data hash commits to the redeemers in the witness set,
+        // so it must be computed from the witness set carrying `newRedeemers`
+        const witnesses = new TxWitnessSet({
+            ...tx.witnesses,
+            vkeyWitnesses: [],
+            redeemers: newRedeemers
+        });
         return new Tx({
             ...tx,
             body: new TxBody({
                 ...tx.body,
                 scriptDataHash: getScriptDataHash(
-                    tx.witnesses,
+                    witnesses,
                     costModelsToLanguageViewCbor(
                         this.protocolParamters.costModels,
                         opts
                     )
                 )
             }),
-            witnesses: new TxWitnessSet({
-                ...tx.witnesses,
-                vkeyWitnesses: [],
-                redeemers: newRedeemers
-            })
+            witnesses
         });
     }
 
