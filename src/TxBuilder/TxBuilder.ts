@@ -183,6 +183,10 @@ export class TxBuilder
         if( typeof tx_out === "string" ) size = BigInt( Math.ceil( tx_out.length / 2 ) );
         else if( tx_out instanceof Uint8Array ) size = BigInt( tx_out.length );
 
+        // Babbage-era min-UTxO rule (CIP-55): (160 + |serialized_output|) * coinsPerUTxOByte.
+        // The constant 160-byte overhead accounts for the transaction input and the
+        // entry in the UTxO map data structure (20 words * 8 bytes).
+        // https://cips.cardano.org/cip/CIP-55
         return BigInt( this.protocolParamters.utxoCostPerByte ) * (size + BigInt(160));
     }
 
@@ -193,6 +197,8 @@ export class TxBuilder
         return this.minimizeLovelaces({
             address: txOut.address,
             value: Value.add(
+                // we add 1_000_000 lovelaces to the minimum output lovelaces to avoid rounding issues
+                // this additional ADA is likely removed in `minimizeLovelaces`
                 Value.lovelaces( this.getMinimumOutputLovelaces( txOut ) + BigInt( 1_000_000 ) ),
                 txOut.value
             ),
@@ -210,6 +216,8 @@ export class TxBuilder
         );
 
         const o = out instanceof TxOut ? out : txBuildOutToTxOut( out )
+
+        const zeroAdaValue = Value.sub( o.value, Value.lovelaces( o.value.lovelaces ) ); 
         // Measure size with the coin field forced to its 9-byte CBOR varint
         // worst case (`2^64 - 1`). This makes the result a true upper bound
         // on the size of the final TxOut once we write `minLovelaces` back
@@ -219,7 +227,7 @@ export class TxBuilder
         const measureOut = new TxOut({
             address: o.address,
             value: Value.add(
-                Value.sub( o.value, Value.lovelaces( o.value.lovelaces ) ),
+                zeroAdaValue,
                 Value.lovelaces( BigInt( "0xffffffffffffffff" ) )
             ),
             datum: o.datum,
@@ -231,10 +239,7 @@ export class TxBuilder
             address: o.address,
             value: 
             Value.add(
-                Value.sub(
-                    o.value,
-                    Value.lovelaces( o.value.lovelaces )
-                ),
+                zeroAdaValue,
                 Value.lovelaces( minLovelaces + increment )
             ),
             datum: o.datum,
