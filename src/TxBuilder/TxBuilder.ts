@@ -39,10 +39,54 @@ function getScriptLikeUplc( scriptLike: ScriptLike ): UPLCTerm
     ).body;
 }
 
+/**
+ * Optional safety margins. Both default to 1, which is the exact behaviour without options.
+ */
+export interface TxBuilderOptions {
+    /**
+     * Multiplies the size-based part of the minimum fee (linear fee, reference-script fee,
+     * expected witnesses). Use it when the fee estimate may come in short; overpaying by a
+     * fraction of an ADA is cheaper than a rejected transaction.
+     */
+    feeMargin?: number
+    /**
+     * Multiplies the execution units each redeemer declares. Local evaluation can differ
+     * slightly from the node's; declaring exactly the measured budget then fails with
+     * "overspending the budget". The script fee is computed from the declared units, so the
+     * margin is always paid for.
+     */
+    exUnitsMargin?: number
+}
+
+function normalizeMargin( m: number | undefined ): number
+{
+    return typeof m === "number" && Number.isFinite( m ) && m > 1 ? m : 1;
+}
+
+/** `ceil( n * margin )`; returns `n` unchanged when `margin` is 1 */
+export function applyMargin( n: bigint, margin: number ): bigint
+{
+    if( margin === 1 ) return n;
+    // scale through a fixed-point integer to stay exact for large values
+    const SCALE = BigInt( 1_000_000 );
+    const m = BigInt( Math.ceil( margin * 1_000_000 ) );
+    return ( n * m + SCALE - BigInt( 1 ) ) / SCALE;
+}
+
+export function applyExUnitsMargin( budget: ExBudget, margin: number ): ExBudget
+{
+    if( margin === 1 ) return budget;
+    return new ExBudget({
+        mem: applyMargin( budget.mem, margin ),
+        cpu: applyMargin( budget.cpu, margin )
+    });
+}
+
 export class TxBuilder
 {
     readonly protocolParamters!: ValidatedTxBuilderProtocolParams
     readonly genesisInfos?: NormalizedGenesisInfos
+    readonly options!: Readonly<Required<TxBuilderOptions>>
 
     setGenesisInfos!: ( geneisInfos: GenesisInfos ) => void;
 
@@ -56,9 +100,19 @@ export class TxBuilder
     
     constructor(
         protocolParamters?: Readonly<TxBuilderProtocolParams>,
-        genesisInfos?: GenesisInfos
+        genesisInfos?: GenesisInfos,
+        options?: TxBuilderOptions
     )
     {
+        defineReadOnlyProperty(
+            this,
+            "options",
+            Object.freeze({
+                feeMargin: normalizeMargin( options?.feeMargin ),
+                exUnitsMargin: normalizeMargin( options?.exUnitsMargin )
+            })
+        );
+
         let _genesisInfos: NormalizedGenesisInfos | undefined = undefined;
         const _setGenesisInfos = ( genInfos: GenesisInfos ): void => {
             if( !isGenesisInfos( genInfos ) ) return;
@@ -167,11 +221,13 @@ export class TxBuilder
             // we add some more bytes for the array tag
             BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
 
-        if( !canBeUInteger( minimum ) ) return minFee;
+        const marginedFee = applyMargin( minFee, this.options.feeMargin );
+
+        if( !canBeUInteger( minimum ) ) return marginedFee;
 
         const min = forceBigUInt( minimum );
 
-        return minFee < min ? min : minFee;
+        return marginedFee < min ? min : marginedFee;
     }
 
     getMinimumOutputLovelaces( tx_out: TxOut | CanBeCborString ): bigint
@@ -556,7 +612,8 @@ export class TxBuilder
                         script.hash.toString(),
                         tx,
                         onScriptResult,
-                        onScriptInvalid
+                        onScriptInvalid,
+                        this.options.exUnitsMargin
                     );
                 }
 
@@ -629,7 +686,8 @@ export class TxBuilder
                         script.hash.toString(),
                         tx,
                         onScriptResult,
-                        onScriptInvalid
+                        onScriptInvalid,
+                        this.options.exUnitsMargin
                     );
                 }
                 else if( tag === TxRedeemerTag.Mint )       onlyRedeemerArg( mintScriptsToExec )
@@ -1917,7 +1975,8 @@ function onEvaluationResult(
     scritHashStr: string,
     tx: Tx,
     onScriptResult: ((rdmr: TxRedeemer, result: CEKValueObj, exBudget: ExBudget, logs: string[], callArgs: Data[], scriptHash: string, tx: Tx ) => void) | undefined,
-    onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[], tx: Tx ) => void) | undefined
+    onScriptInvalid: ((rdmr: TxRedeemer, logs: string[], callArgs: Data[], tx: Tx ) => void) | undefined,
+    exUnitsMargin: number = 1
 ): boolean
 {
     let _isScriptValid = true;
@@ -1982,12 +2041,16 @@ function onEvaluationResult(
         }
     }
 
+    // the node charges for the units the redeemer declares,
+    // so the fee must be computed from the same (margined) units
+    const declared = applyExUnitsMargin( budgetSpent, exUnitsMargin );
+
     rdmrs[i] = new TxRedeemer({
         ...rdmr,
-        execUnits: budgetSpent
+        execUnits: declared
     });
 
-    totExBudget.add( budgetSpent );
+    totExBudget.add( declared );
 
     return _isScriptValid;
 };
