@@ -14,6 +14,16 @@ function sortUTxO( a: UTxO, b: UTxO ): number {
     return ord;
 }
 
+/**
+ * The ledger's TxInfo redeemers is a map keyed by script purpose, ordered by
+ * (tag, index): spend, mint, cert, reward, vote, propose. The witness set may list
+ * redeemers in any order, so sort a copy.
+ */
+function ledgerOrderedRedeemers( rdmrs: TxRedeemer[] ): TxRedeemer[]
+{
+    return rdmrs.slice().sort( ( a, b ) => ( a.tag - b.tag ) || ( a.index - b.index ) );
+}
+
 export interface GetTxInfosOptions {
     /**
      * Pass the finite upper bound of the validity interval as inclusive, as the ledger did
@@ -126,7 +136,7 @@ export function getTxInfos(
                 sigsData,
                 // redeemers
                 new DataMap(
-                    witnesses.redeemers?.map( rdmr => redeemerToDataPair( rdmr, "v2" ) ) ?? []
+                    ( witnesses.redeemers ? ledgerOrderedRedeemers( witnesses.redeemers ) : [] ).map( rdmr => redeemerToDataPair( rdmr, "v2" ) )
                 ),
                 // datums
                 datumsData,
@@ -166,7 +176,7 @@ export function getTxInfos(
             sigsData,
             // redeemers
             new DataMap(
-                witnesses.redeemers?.map( rdmr => redeemerToDataPair( rdmr, "v3" ) ) ?? []
+                ( witnesses.redeemers ? ledgerOrderedRedeemers( witnesses.redeemers ) : [] ).map( rdmr => redeemerToDataPair( rdmr, "v3" ) )
             ),
             // datums
             datumsData,
