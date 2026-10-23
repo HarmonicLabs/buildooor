@@ -156,6 +156,18 @@ export class TxBuilder
         this.cek = new Machine({ ...costs }, pp.maxTxExecutionUnits );
     }
 
+    /**
+     * `true` when the protocol parameters name a protocol version before 9 (Conway).
+     * Unknown versions count as Conway or later.
+     */
+    private isPreConway(): boolean
+    {
+        const v: any = ( this.protocolParamters as any )?.protocolVersion;
+        const major = Array.isArray( v ) ? v[0] : v?.major;
+        const n = Number( major );
+        return Number.isFinite( n ) && n > 0 && n < 9;
+    }
+
     resetMachine(): void
     {
         this.cek.resetBudget( this.pp.maxTxExecutionUnits );
@@ -538,7 +550,7 @@ export class TxBuilder
             cek.resetLogs();
             prevFee = fee;
 
-            const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos );
+            const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos, { upperBoundClosed: this.isPreConway() } );
 
             let totExBudget = new ExBudget({ mem: 0, cpu: 0 });
 
@@ -802,7 +814,7 @@ export class TxBuilder
         memRational = typeof memRational === "number" ? CborPositiveRational.fromNumber( memRational ) : memRational;
         cpuRational = typeof cpuRational === "number" ? CborPositiveRational.fromNumber( cpuRational ) : cpuRational;
 
-        const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos );
+        const { v1: txInfosV1, v2: txInfosV2, v3: txInfosV3 } = getTxInfos( tx, this.genesisInfos, { upperBoundClosed: this.isPreConway() } );
 
         for( let i = 0 ; i < nRdmrs; i++)
         {

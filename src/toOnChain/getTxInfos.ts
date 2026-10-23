@@ -14,9 +14,18 @@ function sortUTxO( a: UTxO, b: UTxO ): number {
     return ord;
 }
 
+export interface GetTxInfosOptions {
+    /**
+     * Pass the finite upper bound of the validity interval as inclusive, as the ledger did
+     * before protocol version 9 (Conway). Default `false`: exclusive, as today.
+     */
+    upperBoundClosed?: boolean
+}
+
 export function getTxInfos(
     transaction: Tx,
-    genesisInfos: GenesisInfos | undefined
+    genesisInfos: GenesisInfos | undefined,
+    options?: GetTxInfosOptions
 ): { v1: Data | undefined, v2: Data | undefined, v3: Data }
 {
     const {
@@ -39,7 +48,7 @@ export function getTxInfos(
     const mintData = (tx.mint ?? Value.lovelaces( 0 ) ).toData();
     const mintDataNoLovelaces = new DataMap( mintData.map.slice( 1 ) );
 
-    const intervalData = getTxIntervalData( tx.validityIntervalStart, tx.ttl, genesisInfos );
+    const intervalData = getTxIntervalData( tx.validityIntervalStart, tx.ttl, genesisInfos, options?.upperBoundClosed === true );
     const sigsData = new DataList( tx.requiredSigners?.map( sig => sig.toData() ) ?? [] );
     const datumsData = new DataMap(
             witnesses.datums

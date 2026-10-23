@@ -29,10 +29,22 @@ export function slotToPOSIX( slot: number, gInfos: NormalizedGenesisInfos ): num
     return gInfos.systemStartPosixMs + msAfterBegin;
 }
 
+/**
+ * The validity interval as the ledger passes it to scripts.
+ *
+ * - The lower bound is always inclusive.
+ * - Missing bounds (`NegInf` / `PosInf`) are inclusive.
+ * - A finite upper bound (the ttl) is exclusive from protocol version 9 (Conway) on.
+ *   Before that the ledger passed it as inclusive; pass `upperBoundClosed = true` to
+ *   reproduce that.
+ *
+ * Plutus `Bool`: `False` is `Constr 0 []`, `True` is `Constr 1 []`.
+ */
 export function getTxIntervalData(
     startSlot: bigint | undefined,
     ttlSlot: bigint | undefined,
-    geneisInfos: GenesisInfos | undefined
+    geneisInfos: GenesisInfos | undefined,
+    upperBoundClosed: boolean = false
 ): DataConstr
 {
     geneisInfos = geneisInfos ? normalizedGenesisInfos( geneisInfos ) : undefined;
@@ -99,8 +111,8 @@ export function getTxIntervalData(
                 [
                     // bound
                     lowerBoundData,
-                    // inclusive
-                    new DataConstr( 0, [] ) // PDataBool; True
+                    // inclusive: always
+                    new DataConstr( 1, [] ) // True
                 ]
             ),
             // to
@@ -109,8 +121,8 @@ export function getTxIntervalData(
                 [
                     // bound
                     upperBoundData,
-                    // inclusive
-                    new DataConstr( 0, [] ) // PDataBool; True
+                    // inclusive: PosInf always; a finite ttl only before Conway
+                    new DataConstr( ( endSlot === undefined || upperBoundClosed ) ? 1 : 0, [] )
                 ]
             ),
         ]
