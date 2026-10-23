@@ -1388,6 +1388,10 @@ export class TxBuilder
 
         dummyMintRedeemers.forEach( ([ policy, toExec, dummyRdmr ]) => {
 
+            // native scripts are checked in phase 1 only:
+            // they take no redeemer and are never executed
+            if( toExec.type === ScriptType.NativeScript ) return;
+
             const i = indexOfPolicy( policy );
 
             mintRedeemers.push(new TxRedeemer({
