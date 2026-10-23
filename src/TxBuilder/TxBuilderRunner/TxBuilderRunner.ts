@@ -2159,6 +2159,10 @@ export class TxBuilderRunner
                     value: _addRequiredSignerKey,
                     ...readonlyValueDescriptor
                 },
+                attachMemo: {
+                    value: _attachMemo,
+                    ...readonlyValueDescriptor
+                },
                 attachMetadata: {
                     value: _attachMetadata,
                     ...readonlyValueDescriptor

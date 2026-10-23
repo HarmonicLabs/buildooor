@@ -72,6 +72,24 @@ describe("TxBuilderRunner", () => {
 
     });
 
+    test("attachMemo adds a CIP-20 message under label 674", async () => {
+
+        const runner = txBuilder.runWithProvider( fakeProvider );
+        expect( typeof runner.attachMemo ).toBe( "function" );
+
+        const tx = await runner
+        .addInputs([ `${"00".repeat( 32 )}#0` ])
+        .payTo( Address.fake, 5_000_000 )
+        .attachMemo( "hello" )
+        .build();
+
+        const meta = tx.auxiliaryData?.metadata?.metadata as any;
+        expect( meta ).toBeDefined();
+        const msg = meta[ "674" ];
+        expect( msg.map[0].k.text ).toBe( "msg" );
+        expect( msg.map[0].v.list.map( ( t: any ) => t.text ) ).toEqual([ "hello" ]);
+    });
+
     test("simple but unresolved", async () => {
 
         const tx = await txRunner
