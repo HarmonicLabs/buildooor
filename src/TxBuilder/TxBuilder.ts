@@ -20,6 +20,7 @@ import { TxBuilderProtocolParams, ValidatedTxBuilderProtocolParams, completeTxBu
 import { ChangeInfos } from "../txBuild/ChangeInfos/ChangeInfos";
 import { estimateMaxSignersNeeded, scriptTypeToDataVersion } from "./utils";
 import { cborFromRational } from "../utils/Rational";
+import { tieredRefScriptFee } from "./utils/refScriptFee";
 import { stringify } from "../utils/stringify";
 import { getCeritficateScript, getMintingScript, getProposingScript, getSpendingScript, getVotingScript, getWithdrawalScript } from "./utils/getScript";
 
@@ -145,12 +146,10 @@ export class TxBuilder
             return sum;
         }, BigInt( 0 ) );
 
-        const minRefScriptFee = this.protocolParamters.minfeeRefScriptCostPerByte ? (
-            totRefScriptBytes * this.protocolParamters.minfeeRefScriptCostPerByte.num /
-            this.protocolParamters.minfeeRefScriptCostPerByte.den
-        ) : (
-            totRefScriptBytes * cborFromRational(defaultProtocolParameters.minfeeRefScriptCostPerByte).num /
-            cborFromRational(defaultProtocolParameters.minfeeRefScriptCostPerByte).den
+        const minRefScriptFee = tieredRefScriptFee(
+            totRefScriptBytes,
+            this.protocolParamters.minfeeRefScriptCostPerByte ??
+            cborFromRational( defaultProtocolParameters.minfeeRefScriptCostPerByte )
         );
 
         const minFeeMultiplier = forceBigUInt( this.protocolParamters.txFeePerByte );
