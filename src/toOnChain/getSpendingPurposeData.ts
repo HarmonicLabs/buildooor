@@ -83,11 +83,13 @@ export function getScriptInfoData(
         throw new Error(
             "invalid stake credentials for rewarding redeemer " + rdmr.index.toString()
         );
+        const rewardCred = Credential.script(
+            new StakeValidatorHash( stakeAddr.credentials )
+        ).toData( version );
+        // V1/V2: Rewarding StakingCredential = StakingHash Credential (Constr 0)
+        // V3:    Rewarding Credential
         purposeArgs = [
-            Credential.script(
-                new StakeValidatorHash( stakeAddr.credentials )
-            )
-            .toData( version )
+            version === "v3" ? rewardCred : new DataConstr( 0, [ rewardCred ] )
         ];
     }
     else if( tag === TxRedeemerTag.Cert )
