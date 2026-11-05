@@ -201,14 +201,20 @@ export class TxBuilder
 
     calcMinFee( tx: Tx, minimum?: CanBeUInteger | undefined ): bigint
     {
-        const totRefScriptBytes = (tx.body.refInputs ?? [])
-        .reduce((sum, refIn) => {
-            if( refIn.resolved.refScript )
+        // like txNonDistinctRefScriptsSize: spent and reference inputs as one set of outputs,
+        // so a UTxO in both counts once, but the same script on two UTxOs counts twice
+        const inputs = new Map<string, UTxO>();
+        for( const utxo of [ ...tx.body.inputs, ...(tx.body.refInputs ?? []) ] )
+            inputs.set( utxo.utxoRef.toString(), utxo );
+
+        const totRefScriptBytes = [ ...inputs.values() ]
+        .reduce((sum, utxo) => {
+            if( utxo.resolved.refScript )
             return sum + BigInt(
-                refIn.resolved.refScript.toCbor().length
+                utxo.resolved.refScript.toCbor().length
                 + 10 // second Cbor wrap
             );
-             
+
             return sum;
         }, BigInt( 0 ) );
 
