@@ -38,6 +38,46 @@ function getScriptLikeUplc( scriptLike: ScriptLike ): UPLCTerm
     ).body;
 }
 
+/**
+ * OPTIONAL SAFETY MARGINS (both default to 1 = exact upstream behaviour).
+ *
+ * `BUILDOOOR_FEE_MARGIN` scales the computed minimum fee. The estimate can come in
+ * short on real Conway transactions — observed 227,013 vs 318,117 expected and
+ * 279,197 vs 373,387 on many-input/many-output txs — and the node then rejects the
+ * whole transaction with `FeeTooSmallUTxO`. Fees are fractions of an ADA, so
+ * overpaying is cheap while underpaying costs the transaction.
+ *
+ * `BUILDOOOR_EXUNITS_MARGIN` scales each redeemer's declared execution units.
+ * Declaring exactly the locally measured budget leaves no room for a cost-model
+ * difference between this evaluator and the node: a ~0.3% gap produced
+ * "overspending the budget" (cpu -137,404, mem -795) on a script that evaluates
+ * fine locally. Other offchain builders inflate by 1.1-1.2x for this reason.
+ *
+ * Both are read per call so a process can set them without rebuilding.
+ */
+function readMargin( name: string ): number
+{
+    const raw = typeof process !== "undefined" ? process.env?.[ name ] : undefined;
+    const m = Number( raw ?? "1" );
+    return Number.isFinite( m ) && m > 1 ? m : 1;
+}
+
+export function applyFeeMargin( fee: bigint ): bigint
+{
+    const m = readMargin( "BUILDOOOR_FEE_MARGIN" );
+    return m === 1 ? fee : BigInt( Math.ceil( Number( fee ) * m ) );
+}
+
+export function applyExUnitsMargin( budget: ExBudget ): ExBudget
+{
+    const m = readMargin( "BUILDOOOR_EXUNITS_MARGIN" );
+    if( m === 1 ) return budget;
+    return new ExBudget({
+        cpu: BigInt( Math.ceil( Number( budget.cpu ) * m ) ),
+        mem: BigInt( Math.ceil( Number( budget.mem ) * m ) ),
+    });
+}
+
 export class TxBuilder
 {
     readonly protocolParamters!: ValidatedTxBuilderProtocolParams
@@ -145,13 +185,32 @@ export class TxBuilder
             return sum;
         }, BigInt( 0 ) );
 
-        const minRefScriptFee = this.protocolParamters.minfeeRefScriptCostPerByte ? (
-            totRefScriptBytes * this.protocolParamters.minfeeRefScriptCostPerByte.num /
-            this.protocolParamters.minfeeRefScriptCostPerByte.den
-        ) : (
-            totRefScriptBytes * cborFromRational(defaultProtocolParameters.minfeeRefScriptCostPerByte).num /
-            cborFromRational(defaultProtocolParameters.minfeeRefScriptCostPerByte).den
-        );
+        // CONWAY TIERED REF-SCRIPT FEE. The ledger does NOT charge a flat per-byte
+        // rate: it escalates by 1.2x for every 25,600-byte tier of TOTAL reference
+        // script bytes. A flat rate underestimates as soon as a tx references more
+        // than one tier's worth of scripts, and the node then rejects it with
+        // FeeTooSmallUTxO (seen on txs referencing a ~11KB state contract together
+        // with observers). Accumulated as an exact fraction and rounded UP, so we
+        // overpay dust rather than ever underpay.
+        const refScriptRate = this.protocolParamters.minfeeRefScriptCostPerByte
+            ? this.protocolParamters.minfeeRefScriptCostPerByte
+            : cborFromRational( defaultProtocolParameters.minfeeRefScriptCostPerByte );
+        const minRefScriptFee = ( ( totalBytes: bigint, baseNum: bigint, baseDen: bigint ): bigint => {
+            const TIER = BigInt( 25600 );
+            let num = baseNum, den = baseDen;          // rate for the current tier
+            let accNum = BigInt( 0 ), accDen = BigInt( 1 );
+            let left = totalBytes;
+            while( left > BigInt( 0 ) )
+            {
+                const chunk = left > TIER ? TIER : left;
+                // acc += chunk * num / den, kept exact
+                accNum = accNum * den + chunk * num * accDen;
+                accDen = accDen * den;
+                left -= chunk;
+                num = num * BigInt( 6 ); den = den * BigInt( 5 );   // rate *= 1.2
+            }
+            return ( accNum + accDen - BigInt( 1 ) ) / accDen;      // ceil
+        })( totRefScriptBytes, refScriptRate.num, refScriptRate.den );
 
         const minFeeMultiplier = forceBigUInt( this.protocolParamters.txFeePerByte );
         
@@ -168,11 +227,13 @@ export class TxBuilder
             // we add some more bytes for the array tag
             BigInt( nVkeyWits < 24 ? 1 : (nVkeyWits < 256 ? 2 : 4) ) * minFeeMultiplier;
 
-        if( !canBeUInteger( minimum ) ) return minFee;
+        const marginedFee = applyFeeMargin( minFee );
+
+        if( !canBeUInteger( minimum ) ) return marginedFee;
 
         const min = forceBigUInt( minimum );
 
-        return minFee < min ? min : minFee;
+        return marginedFee < min ? min : marginedFee;
     }
 
     getMinimumOutputLovelaces( tx_out: TxOut | CanBeCborString ): bigint
@@ -1976,7 +2037,7 @@ function onEvaluationResult(
 
     rdmrs[i] = new TxRedeemer({
         ...rdmr,
-        execUnits: budgetSpent
+        execUnits: applyExUnitsMargin( budgetSpent )
     });
 
     totExBudget.add( budgetSpent );
