@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.11
+
+- `calcMinFee` counts reference scripts on spent inputs as the ledger does (`txNonDistinctRefScriptsSize` over inputs ∪ refInputs, tiered once); fixes `FeeTooSmallUTxO` when a spent UTxO carries a reference script.
+
+
 ## 0.2.10
 
 Fixes found by three projects (Gravity, Mandala, Gerolamo) that were running patched builds of 0.2.9.
